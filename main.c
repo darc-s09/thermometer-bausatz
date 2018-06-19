@@ -13,15 +13,11 @@
 #include <avr/sleep.h>
 
 #define NLEDS 6 // per group
-#define NDIM  5 // duty cycle for dimmed LEDs
+#define NDIM  10 // duty cycle for dimmed LEDs
 
-                // Duty cycle 1:10 would result in better contrast
-                // between DIM and ON LEDs, but requires higher
-                // heartbeat clock to avoid flicker.
-
-// With 2000 Hz heartbeat clock, charlieplexing frequency is 333 Hz,
-// and dimmed LED flicker frequency is 66 Hz.
-#define F_TIMER 2000
+// With 3000 Hz heartbeat clock, charlieplexing frequency is 500 Hz,
+// and dimmed LED flicker frequency is 50 Hz.
+#define F_TIMER 3000
 
 enum ledstatus
 {
