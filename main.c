@@ -14,6 +14,8 @@
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 
+#include "USI_UART_config.h"
+
 #define NLEDS 6 // per group
 #define NDIM  10 // duty cycle for dimmed LEDs
 
@@ -181,6 +183,9 @@ setup(void)
     /* ADC: internal 1.1 V reference, channel 8 (temp sensor) */
     ADMUX = _BV(REFS1) | 0b100010;
 
+    USI_UART_Flush_Buffers();
+    USI_UART_Initialise_Receiver();
+
     sei();
 }
 
@@ -214,9 +219,14 @@ loop(void)
         }
     }
 
+    if( USI_UART_Data_In_Receive_Buffer() )
+    {
+        USI_UART_Transmit_Byte(':');
+        USI_UART_Transmit_Byte(USI_UART_Receive_Byte());
+    }
+
     sleep_mode();
 }
-
 
 int main(void) __attribute__((OS_main));
 int
