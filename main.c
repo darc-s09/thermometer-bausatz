@@ -8,6 +8,8 @@
  *
  */
 
+#include <string.h>
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -27,6 +29,7 @@ enum ledstatus
 enum ledstatus leds[2 * NLEDS];
 
 static volatile uint32_t seconds;
+static volatile uint16_t adc_result;
 
 /*
  * LEDs are operated in "Charliexplexing" mode
@@ -129,6 +132,21 @@ led_update(void)
     DDRB = ddr;
 }
 
+static void
+start_adc(void)
+{
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | /* divider 1:8 => 125 kHz ADC clock */
+    _BV(ADEN) | _BV(ADIF) | _BV(ADIE);
+    // now, actually start the conversion
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN) | _BV(ADSC) | _BV(ADIE);
+}
+
+ISR(ADC_vect)
+{
+    adc_result = ADC;
+    ADCSRA = 0;
+}
+
 
 ISR(TIM1_COMPA_vect)
 {
@@ -137,6 +155,7 @@ ISR(TIM1_COMPA_vect)
     if (++ticks == F_TIMER)
     {
         ticks = 0;
+        start_adc();
         seconds++;
     }
 
@@ -159,12 +178,42 @@ setup(void)
     /* LED group 1: PA0/1/2 */
     /* LED group 2: PB0/1/2 */
 
+    /* ADC: internal 1.1 V reference, channel 8 (temp sensor) */
+    ADMUX = _BV(REFS1) | 0b100010;
+
     sei();
 }
 
 static void
 loop(void)
 {
+    uint16_t t;
+
+    if ((t = adc_result) != 0)
+    {
+        adc_result = 0;
+        // new temperature value
+        double temp = 1.1 * ((double)t - 275);
+        memset(leds, OFF, sizeof leds);
+        if (temp < 12.0)
+        {
+            // low temperature: only dim first LED
+            leds[0] = DIM;
+        }
+        else if (temp > 32.0)
+        {
+            // over temperature: dim all LEDs
+            memset(leds, DIM, sizeof leds);
+        }
+        else
+        {
+            // normal range: dim LEDs below actual value, turn on LED
+            // for actual value
+            memset(leds, DIM, (int)(temp - 12) / 2);
+            leds[(int)(temp - 12) / 2] = ON;
+        }
+    }
+
     sleep_mode();
 }
 
@@ -174,9 +223,6 @@ int
 main(void)
 {
     setup();
-
-    leds[3] = DIM;
-    leds[8] = ON;
 
     for (;;)
       loop();
