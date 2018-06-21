@@ -176,6 +176,7 @@ setup(void)
     /* PA4/5/6: ISP / USI */
     /* PA7: jumper 1 */
     PORTA = _BV(3) | _BV(4) | _BV(5) | _BV(6) | _BV(7);
+    DDRA = _BV(5); // USI DO
 
     /* LED group 1: PA0/1/2 */
     /* LED group 2: PB0/1/2 */
