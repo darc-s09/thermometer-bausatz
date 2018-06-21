@@ -1,3 +1,24 @@
+/*****************************************************************************
+*
+* Copyright (C) 2003 Atmel Corporation
+*
+* File              : USI_UART.c
+* Compiler          : IAR EWAAVR 2.28a
+* Created           : 18.07.2002 by JLL
+* Modified          : 02-10-2003 by LTA
+*
+* Support mail      : avr@atmel.com
+*
+* Supported devices : ATtiny26
+*
+* Application Note  : AVR307 - Half duplex UART using the USI Interface
+*
+* Description       : Functions for USI_UART_receiver and USI_UART_transmitter.
+*                     Uses Pin Change Interrupt to detect incomming signals.
+*
+*
+****************************************************************************/
+
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
@@ -117,8 +138,9 @@ void USI_UART_Initialise_Transmitter( void )
 void USI_UART_Initialise_Receiver( void )
 {
     USICR  =  0;                                            // Disable USI.
-    GIFR   =  (1<<PCIF0);                                   // Clear pin change interrupt flag.
-    GIMSK |=  (1<<PCIE0);                                   // Enable pin change interrupt for port A
+    GIFR   =  (1<<PCIF0);                                    // Clear pin change interrupt flag.
+    PCMSK0 = (1<<PCINT6);
+    GIMSK |=  (1<<PCIE0);                                    // Enable pin change interrupt for PA6.
 }
 
 // Puts data in the transmission buffer, after reverseing the bits in the byte.
@@ -166,10 +188,10 @@ ISR(PCINT0_vect)
     if (!( PINA & (1<<PA6) ))                                     // If the USI DI pin is low, then it is likely that it
     {                                                             //  was this pin that generated the pin change interrupt.
         TCNT0  = INTERRUPT_STARTUP_DELAY + INITIAL_TIMER0_SEED;   // Plant TIMER0 seed to match baudrate (incl interrupt start up time.).
-        GTCCR  = (1<<PSR10);                                      // Reset the prescaler and start Timer0.
+        GTCCR  = (1<<PSR10);                                       // Reset the prescaler and start Timer0.
         TCCR0B = (0<<CS02)|(0<<CS01)|(1<<CS00);
-        TIFR0  = (1<<TOV0);                                       // Clear Timer0 OVF interrupt flag.
-        TIMSK0|= (1<<TOIE0);                                      // Enable Timer0 OVF interrupt.
+        TIFR0   = (1<<TOV0);                                       // Clear Timer0 OVF interrupt flag.
+        TIMSK0 |= (1<<TOIE0);                                      // Enable Timer0 OVF interrupt.
 
         USICR  = (0<<USISIE)|(1<<USIOIE)|                         // Enable USI Counter OVF interrupt.
                  (0<<USIWM1)|(1<<USIWM0)|                         // Select Three Wire mode.
@@ -179,7 +201,7 @@ ISR(PCINT0_vect)
         USISR  = 0xF0 |                                           // Clear all USI interrupt flags.
                  USI_COUNTER_SEED_RECEIVE;                        // Preload the USI counter to generate interrupt.
 
-        GIMSK &=  ~(1<<PCIE0);                                     // Disable pin change interrupt for port A
+        GIMSK &=  ~(1<<PCIE0);                                    // Disable pin change interrupt for PB3:0.
 
         USI_UART_status.ongoing_Reception_Of_Package = TRUE;
     }
@@ -225,8 +247,9 @@ ISR(USI_OVF_vect)
 
                 TCCR0B  = (0<<CS02)|(0<<CS01)|(0<<CS00);                // Stop Timer0.
                 USICR  =  0;                                            // Disable USI.
-                GIFR   =  (1<<PCIF0);                                    // Clear pin change interrupt flag.
-                GIMSK |=  (1<<PCIE0);                                    // Enable pin change interrupt for port A
+                GIFR   =  (1<<PCIF0);                                   // Clear pin change interrupt flag.
+                PCMSK0 = (1<<PCINT6);
+                GIMSK |=  (1<<PCIE0);                                   // Enable pin change interrupt for PA6.
             }
         }
     }
@@ -251,7 +274,8 @@ ISR(USI_OVF_vect)
         TCCR0B  = (0<<CS02)|(0<<CS01)|(0<<CS00);                // Stop Timer0.
         USICR  =  0;                                            // Disable USI.
         GIFR   =  (1<<PCIF0);                                    // Clear pin change interrupt flag.
-        GIMSK |=  (1<<PCIE0);                                    // Enable pin change interrupt for port A
+        PCMSK0 = (1<<PCINT6);
+        GIMSK |=  (1<<PCIE0);                                    // Enable pin change interrupt for PA6.
     }
 
 }

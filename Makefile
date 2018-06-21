@@ -7,7 +7,7 @@
 # $Id$
 
 
-MCU = attiny24
+MCU = attiny44
 FORMAT = ihex
 TARGET = thermometer
 SRC = main.c USI_UART.c
@@ -226,3 +226,25 @@ depend:
 .PHONY:	all build elf hex eep lss sym program coff extcoff clean depend
 
 
+# DO NOT DELETE THIS LINE -- make depend depends on it.
+main.o: main.c /usr/local/avr/include/string.h \
+ /usr/local/lib/gcc/avr/5.4.0/include/stddef.h \
+ /usr/local/avr/include/avr/io.h /usr/local/avr/include/avr/sfr_defs.h \
+ /usr/local/avr/include/inttypes.h \
+ /usr/local/lib/gcc/avr/5.4.0/include/stdint.h \
+ /usr/local/avr/include/stdint.h /usr/local/avr/include/avr/iotn44.h \
+ /usr/local/avr/include/avr/iotnx4.h \
+ /usr/local/avr/include/avr/portpins.h \
+ /usr/local/avr/include/avr/common.h /usr/local/avr/include/avr/version.h \
+ /usr/local/avr/include/avr/fuse.h /usr/local/avr/include/avr/lock.h \
+ /usr/local/avr/include/avr/interrupt.h \
+ /usr/local/avr/include/avr/sleep.h
+USI_UART.o: USI_UART.c /usr/local/avr/include/avr/io.h \
+ /usr/local/avr/include/avr/sfr_defs.h /usr/local/avr/include/inttypes.h \
+ /usr/local/lib/gcc/avr/5.4.0/include/stdint.h \
+ /usr/local/avr/include/stdint.h /usr/local/avr/include/avr/iotn44.h \
+ /usr/local/avr/include/avr/iotnx4.h \
+ /usr/local/avr/include/avr/portpins.h \
+ /usr/local/avr/include/avr/common.h /usr/local/avr/include/avr/version.h \
+ /usr/local/avr/include/avr/fuse.h /usr/local/avr/include/avr/lock.h \
+ /usr/local/avr/include/avr/interrupt.h USI_UART_config.h

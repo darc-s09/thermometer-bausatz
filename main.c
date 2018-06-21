@@ -184,7 +184,7 @@ setup(void)
     ADMUX = _BV(REFS1) | 0b100010;
 
     USI_UART_Flush_Buffers();
-    USI_UART_Initialise_Receiver();
+    USI_UART_Initialise_Receiver();                                         // Initialisation for USI_UART receiver
 
     sei();
 }
@@ -228,11 +228,17 @@ loop(void)
     sleep_mode();
 }
 
+
 int main(void) __attribute__((OS_main));
 int
 main(void)
 {
     setup();
+
+    USI_UART_Transmit_Byte('H');
+    USI_UART_Transmit_Byte('i');
+    USI_UART_Transmit_Byte('\r');
+    USI_UART_Transmit_Byte('\n');
 
     for (;;)
       loop();
