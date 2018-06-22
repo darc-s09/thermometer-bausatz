@@ -175,8 +175,17 @@ main(void)
 {
     setup();
 
-    leds[3] = DIM;
-    leds[8] = ON;
+    leds[0] = DIM;
+    leds[1] = DIM;
+    leds[2] = DIM;
+    leds[3] = ON;
+    leds[4] = DIM;
+    leds[5] = DIM;
+    leds[6] = DIM;
+    leds[7] = ON;
+    leds[8] = DIM;
+    leds[9] = DIM;
+    leds[10] = DIM;
 
     for (;;)
       loop();
