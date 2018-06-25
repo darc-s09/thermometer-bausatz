@@ -17,11 +17,11 @@
 #include "USI_UART_config.h"
 
 #define NLEDS 6 // per group
-#define NDIM  10 // duty cycle for dimmed LEDs
+#define NDIM  20 // duty cycle for dimmed LEDs
 
 // With 3000 Hz heartbeat clock, charlieplexing frequency is 500 Hz,
 // and dimmed LED flicker frequency is 50 Hz.
-#define F_TIMER 3000
+#define F_TIMER 5000
 
 enum ledstatus
 {
