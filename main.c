@@ -13,14 +13,15 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
+#include <avr/power.h>
 
 #include "USI_UART_config.h"
 
 #define NLEDS 6 // per group
 #define NDIM  20 // duty cycle for dimmed LEDs
 
-// With 3000 Hz heartbeat clock, charlieplexing frequency is 500 Hz,
-// and dimmed LED flicker frequency is 50 Hz.
+// With 5000 Hz heartbeat clock, charlieplexing frequency is 866 Hz,
+// and dimmed LED flicker frequency is 43 Hz.
 #define F_TIMER 5000
 
 enum ledstatus
@@ -167,6 +168,8 @@ ISR(TIM1_COMPA_vect)
 static void
 setup(void)
 {
+    clock_prescale_set(clock_div_1);
+
     /* TIMER1: interrupt each 1/F_TIMER */
     OCR1A = F_CPU / F_TIMER;
     TIMSK1 = _BV(OCIE1A);
@@ -222,7 +225,6 @@ loop(void)
 
     if( USI_UART_Data_In_Receive_Buffer() )
     {
-        USI_UART_Transmit_Byte(':');
         USI_UART_Transmit_Byte(USI_UART_Receive_Byte());
     }
 

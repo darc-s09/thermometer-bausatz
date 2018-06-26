@@ -109,7 +109,7 @@ void USI_UART_Initialise_Transmitter( void )
     GTCCR  = (1<<PSR10);                                      // Reset the prescaler and start Timer0.
     TCCR0A = (1<<WGM01);                                      // ... in CTC mode
     OCR0A  = TIMER0_TOP;
-    TCCR0B = (0<<CS02)|(0<<CS01)|(1<<CS00);
+    TCCR0B = (0<<CS02)|(1<<CS01)|(0<<CS00);
 
     USICR  = (0<<USISIE)|(1<<USIOIE)|                         // Enable USI Counter OVF interrupt.
              (0<<USIWM1)|(1<<USIWM0)|                         // Select Three Wire mode.
@@ -119,6 +119,7 @@ void USI_UART_Initialise_Transmitter( void )
     USIDR  = 0xFF;                                            // Make sure MSB is '1' before enabling USI_DO.
     USISR  = 0xF0 |                                           // Clear all USI interrupt flags.
              0x0F;                                            // Preload the USI counter to generate interrupt at first USI clock.
+    DDRA  |= (1<<PA5);                                        // Configure USI_DO as output.
 
     USI_UART_status.ongoing_Transmission_From_Buffer = TRUE;
 
@@ -130,6 +131,8 @@ void USI_UART_Initialise_Transmitter( void )
 // The USI is configured to read data within the pinchange interrupt.
 void USI_UART_Initialise_Receiver( void )
 {
+    PORTA |=   (1<<PA4)|(1<<PA5)|(1<<PA6);                  // Enable pull up on USI DO, DI and SCK pins.
+    DDRA  &= ~((1<<PA4)|(1<<PA5)|(1<<PA6));                 // Set USI DI, DO and SCK pins as inputs.
     USICR  =  0;                                            // Disable USI.
     GIFR   =  (1<<PCIF0);                                    // Clear pin change interrupt flag.
     PCMSK0 = (1<<PCINT6);
@@ -184,7 +187,7 @@ ISR(PCINT0_vect)
         GTCCR  = (1<<PSR10);                                       // Reset the prescaler and start Timer0.
         TCCR0A = (1<<WGM01);                                      // ... in CTC mode
         OCR0A  = TIMER0_TOP;
-        TCCR0B = (0<<CS02)|(0<<CS01)|(1<<CS00);
+        TCCR0B = (0<<CS02)|(1<<CS01)|(0<<CS00);
 
         USICR  = (0<<USISIE)|(1<<USIOIE)|                         // Enable USI Counter OVF interrupt.
                  (0<<USIWM1)|(1<<USIWM0)|                         // Select Three Wire mode.
@@ -239,6 +242,8 @@ ISR(USI_OVF_vect)
                 USI_UART_status.ongoing_Transmission_From_Buffer = FALSE;
 
                 TCCR0B  = (0<<CS02)|(0<<CS01)|(0<<CS00);                // Stop Timer0.
+                PORTA |=  (1<<PA4)|(1<<PA5)|(1<<PA6);                   // Enable pull up on USI DO, DI and SCK pins.
+                DDRA  &= ~((1<<PA4)|(1<<PA5)|(1<<PA6));                 // Set USI DI, DO and SCK pins as inputs.
                 USICR  =  0;                                            // Disable USI.
                 GIFR   =  (1<<PCIF0);                                   // Clear pin change interrupt flag.
                 PCMSK0 = (1<<PCINT6);
@@ -265,6 +270,8 @@ ISR(USI_OVF_vect)
         }                                                               // The bit reversing is moved to the application section to save time within the interrupt.
 
         TCCR0B  = (0<<CS02)|(0<<CS01)|(0<<CS00);                // Stop Timer0.
+        PORTA |=  (1<<PA4)|(1<<PA5)|(1<<PA6);                   // Enable pull up on USI DO, DI and SCK pins.
+        DDRA  &= ~((1<<PA4)|(1<<PA5)|(1<<PA6));                 // Set USI DI, DO and SCK pins as inputs.
         USICR  =  0;                                            // Disable USI.
         GIFR   =  (1<<PCIF0);                                    // Clear pin change interrupt flag.
         PCMSK0 = (1<<PCINT6);
