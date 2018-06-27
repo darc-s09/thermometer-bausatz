@@ -139,8 +139,8 @@ led_update(void)
 static void
 start_adc(void)
 {
-    ADCSRA = _BV(ADPS2) | _BV(ADPS1) | /* divider 1:64 => 125 kHz ADC clock */
-    _BV(ADEN) | _BV(ADIF) | _BV(ADIE);
+    /* divider 1:64 => 125 kHz ADC clock */
+    ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN) | _BV(ADIF);
     // now, actually start the conversion
     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN) | _BV(ADSC) | _BV(ADIE);
 }
@@ -148,7 +148,7 @@ start_adc(void)
 ISR(ADC_vect)
 {
     adc_result = ADC;
-    ADCSRA = 0;
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN);
 }
 
 
@@ -187,6 +187,8 @@ setup(void)
 
     /* ADC: internal 1.1 V reference, channel 8 (temp sensor) */
     ADMUX = _BV(REFS1) | 0b100010;
+    /* divider 1:64 => 125 kHz ADC clock */
+    ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN);
 
     USI_UART_Flush_Buffers();
     USI_UART_Initialise_Receiver();                                         // Initialisation for USI_UART receiver
@@ -222,12 +224,12 @@ loop(void)
             memset(leds, DIM, (int)(temp - 12) / 2);
             leds[(int)(temp - 12) / 2] = ON;
         }
-    }
 
-    if( USI_UART_Data_In_Receive_Buffer() )
-    {
-        (void)getchar();
-        printf("%d\n", t);
+        if( USI_UART_Data_In_Receive_Buffer() )
+        {
+            (void)getchar();
+            printf("%u\n", t);
+        }
     }
 
     sleep_mode();

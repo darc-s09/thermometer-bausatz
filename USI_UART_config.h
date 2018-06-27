@@ -26,7 +26,7 @@
 #define TIMER_PRESCALER           8
 
 #define UART_RX_BUFFER_SIZE        16     /* 2,4,8,16,32,64,128 or 256 bytes */
-#define UART_TX_BUFFER_SIZE        4
+#define UART_TX_BUFFER_SIZE        16
 
 
 //********** USI_UART Prototypes **********//
