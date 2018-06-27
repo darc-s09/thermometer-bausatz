@@ -8,6 +8,9 @@
  *
  */
 
+#include <string.h>
+
+#include <avr/power.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -22,11 +25,11 @@
 enum ledstatus
 {
     OFF, DIM, ON
-};
+} __attribute__((packed));
 
 enum ledstatus leds[2 * NLEDS];
 
-static volatile uint32_t seconds;
+static volatile uint32_t ticks;
 
 /*
  * LEDs are operated in "Charliexplexing" mode
@@ -132,12 +135,12 @@ led_update(void)
 
 ISR(TIM1_COMPA_vect)
 {
-    static int ticks;
+    static int t;
 
-    if (++ticks == F_TIMER)
+    if (++t == F_TIMER * 4)
     {
-        ticks = 0;
-        seconds++;
+        t = 0;
+        ticks++;
     }
 
     led_update();
@@ -146,6 +149,8 @@ ISR(TIM1_COMPA_vect)
 static void
 setup(void)
 {
+    clock_prescale_set(clock_div_1);
+
     /* TIMER1: interrupt each 1/F_TIMER */
     OCR1A = F_CPU / F_TIMER;
     TIMSK1 = _BV(OCIE1A);
@@ -165,6 +170,47 @@ setup(void)
 static void
 loop(void)
 {
+    static uint32_t oldtime;
+    static int state;
+
+    if (oldtime != ticks)
+    {
+        oldtime = ticks;
+
+        switch (state)
+        {
+        case 0:
+            memset(leds, DIM, 2 * NLEDS);
+            break;
+
+        case 1 ... 9:
+            // wait
+            break;
+
+        case 10 ... 20:
+            memset(leds, DIM, 2 * NLEDS);
+            leds[state - 10] = ON;
+            break;
+
+        case 21 ... 31:
+            memset(leds, OFF, 2 * NLEDS);
+            leds[31 - state] = ON;
+            break;
+
+        case 32:
+            memset(leds, OFF, 2 * NLEDS);
+            break;
+
+        case 33 ... 35:
+            // wait
+            break;
+
+        case 36:
+            state = -1; // advance to 0 below
+            break;
+        }
+        state++;
+    }
     sleep_mode();
 }
 
@@ -174,18 +220,6 @@ int
 main(void)
 {
     setup();
-
-    leds[0] = DIM;
-    leds[1] = DIM;
-    leds[2] = DIM;
-    leds[3] = ON;
-    leds[4] = DIM;
-    leds[5] = DIM;
-    leds[6] = DIM;
-    leds[7] = ON;
-    leds[8] = DIM;
-    leds[9] = DIM;
-    leds[10] = DIM;
 
     for (;;)
       loop();
