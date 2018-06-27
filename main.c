@@ -137,7 +137,7 @@ ISR(TIM1_COMPA_vect)
 {
     static int t;
 
-    if (++t == F_TIMER * 4)
+    if (++t == F_TIMER / 2)
     {
         t = 0;
         ticks++;
