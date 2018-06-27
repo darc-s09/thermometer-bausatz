@@ -9,6 +9,7 @@
  */
 
 #include <string.h>
+#include <stdio.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -138,7 +139,7 @@ led_update(void)
 static void
 start_adc(void)
 {
-    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | /* divider 1:8 => 125 kHz ADC clock */
+    ADCSRA = _BV(ADPS2) | _BV(ADPS1) | /* divider 1:64 => 125 kHz ADC clock */
     _BV(ADEN) | _BV(ADIF) | _BV(ADIE);
     // now, actually start the conversion
     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN) | _BV(ADSC) | _BV(ADIE);
@@ -225,23 +226,36 @@ loop(void)
 
     if( USI_UART_Data_In_Receive_Buffer() )
     {
-        USI_UART_Transmit_Byte(USI_UART_Receive_Byte());
+        (void)getchar();
+        printf("%d\n", t);
     }
 
     sleep_mode();
 }
 
+static int uart_putchar(char c, FILE *stream)
+{
+    if (c == '\n')
+        uart_putchar('\r', stream);
+    USI_UART_Transmit_Byte(c);
+    return 0;
+}
+
+static int uart_getchar(FILE *stream __attribute__((unused)))
+{
+    return USI_UART_Receive_Byte();
+}
+
+static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, uart_getchar,
+                                         _FDEV_SETUP_RW);
 
 int main(void) __attribute__((OS_main));
 int
 main(void)
 {
     setup();
-
-    USI_UART_Transmit_Byte('H');
-    USI_UART_Transmit_Byte('i');
-    USI_UART_Transmit_Byte('\r');
-    USI_UART_Transmit_Byte('\n');
+    stdout = &mystdout;
+    stdin = &mystdout;
 
     for (;;)
       loop();
