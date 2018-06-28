@@ -9,14 +9,11 @@
  */
 
 #include <string.h>
-#include <stdio.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
-
-#include "USI_UART_config.h"
 
 #define NLEDS 6 // per group
 #define NDIM  20 // duty cycle for dimmed LEDs
@@ -180,7 +177,6 @@ setup(void)
     /* PA4/5/6: ISP / USI */
     /* PA7: jumper 1 */
     PORTA = _BV(3) | _BV(4) | _BV(5) | _BV(6) | _BV(7);
-    DDRA = _BV(5); // USI DO
 
     /* LED group 1: PA0/1/2 */
     /* LED group 2: PB0/1/2 */
@@ -189,9 +185,6 @@ setup(void)
     ADMUX = _BV(REFS1) | 0b100010;
     /* divider 1:64 => 125 kHz ADC clock */
     ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN);
-
-    USI_UART_Flush_Buffers();
-    USI_UART_Initialise_Receiver();                                         // Initialisation for USI_UART receiver
 
     sei();
 }
@@ -224,40 +217,16 @@ loop(void)
             memset(leds, DIM, (int)(temp - 12) / 2);
             leds[(int)(temp - 12) / 2] = ON;
         }
-
-        if( USI_UART_Data_In_Receive_Buffer() )
-        {
-            (void)getchar();
-            printf("%u\n", t);
-        }
     }
 
     sleep_mode();
 }
-
-static int uart_putchar(char c, FILE *stream)
-{
-    if (c == '\n')
-        uart_putchar('\r', stream);
-    USI_UART_Transmit_Byte(c);
-    return 0;
-}
-
-static int uart_getchar(FILE *stream __attribute__((unused)))
-{
-    return USI_UART_Receive_Byte();
-}
-
-static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, uart_getchar,
-                                         _FDEV_SETUP_RW);
 
 int main(void) __attribute__((OS_main));
 int
 main(void)
 {
     setup();
-    stdout = &mystdout;
-    stdin = &mystdout;
 
     for (;;)
       loop();

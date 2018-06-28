@@ -10,7 +10,7 @@
 MCU = attiny44
 FORMAT = ihex
 TARGET = thermometer
-SRC = main.c USI_UART.c
+SRC = main.c
 ASRC = 
 OPT = s
 
