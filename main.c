@@ -18,9 +18,7 @@
 #define NLEDS 6 // per group
 #define NDIM  20 // duty cycle for dimmed LEDs
 
-// With 5000 Hz heartbeat clock, charlieplexing frequency is 866 Hz,
-// and dimmed LED flicker frequency is 43 Hz.
-#define F_TIMER 5000
+#define F_TIMER (100 * NLEDS) // 100 Hz per LED
 
 enum ledstatus
 {
@@ -31,6 +29,8 @@ enum ledstatus leds[2 * NLEDS];
 
 static volatile uint32_t seconds;
 static volatile uint16_t adc_result;
+
+static uint8_t cycle;
 
 /*
  * LEDs are operated in "Charliexplexing" mode
@@ -52,25 +52,17 @@ static volatile uint16_t adc_result;
 static void
 led_update(void)
 {
-    static uint8_t cycle;
-    static uint8_t dim_cycle;
 
     if (++cycle == NLEDS)
     {
         cycle = 0;
-        // LEDs in DIM state are only activated each NDIMth cycle
-        // LEDs in ON state are activated each time their cycle
-        // number matches
-        if (++dim_cycle == NDIM)
-            dim_cycle = 0;
     }
 
     // LEDs are on PA0, PA1, PA2
     uint8_t port = PORTA & ~0b00000111; // preserve all non-LED bits,
     uint8_t ddr  = DDRA  & ~0b00000111; // but mask LED bits to 0
 
-    if (leds[cycle] == OFF ||
-        (leds[cycle] == DIM && dim_cycle != 0))
+    if (leds[cycle] == OFF)
     {
         ddr |= 0b00000111; // output low, all off
     }
@@ -103,8 +95,7 @@ led_update(void)
     port = PORTB & ~0b00000111;
     ddr = DDRB & ~0b00000111;
 
-    if (leds[cycle + NLEDS] == OFF ||
-        (leds[cycle + NLEDS] == DIM && dim_cycle != 0))
+    if (leds[cycle + NLEDS] == OFF)
     {
         ddr |= 0b00000111; // output low, all off
     }
@@ -148,6 +139,30 @@ ISR(ADC_vect)
     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN);
 }
 
+/*
+ * Turn off current LEDs if they are in DIM state.
+ *
+ * Called early during the timer counting cycle.  Remainder of timer
+ * period the proceeds with this LED turned off.
+ */
+static void
+led_dim(void)
+{
+    // LEDs are on PA0, PA1, PA2
+    if (leds[cycle] == DIM)
+    {
+        PORTA &= ~0b00000111; // output low
+        DDRA  |=  0b00000111;
+    }
+
+    // LEDs are on PB0, PB1, PB2
+    if (leds[cycle + NLEDS] == DIM)
+    {
+        PORTB &= ~0b00000111; // output low
+        DDRB  |=  0b00000111;
+    }
+}
+
 
 ISR(TIM1_COMPA_vect)
 {
@@ -163,14 +178,20 @@ ISR(TIM1_COMPA_vect)
     led_update();
 }
 
+ISR(TIM1_COMPB_vect)
+{
+    led_dim();
+}
+
 static void
 setup(void)
 {
-    clock_prescale_set(clock_div_1);
+    clock_prescale_set(clock_div_8);
 
     /* TIMER1: interrupt each 1/F_TIMER */
     OCR1A = F_CPU / F_TIMER;
-    TIMSK1 = _BV(OCIE1A);
+    OCR1B = F_CPU / F_TIMER / NDIM; /* dimmed LED turnoff time */
+    TIMSK1 = _BV(OCIE1A) | _BV(OCIE1B);
     TCCR1B = _BV(WGM12) | _BV(CS10); /* CTC mode, full clock */
 
     /* PA3: jumper 2 */
