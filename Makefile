@@ -30,7 +30,7 @@ DEBUG = dwarf-4
 CSTANDARD = -std=gnu99
 
 # Place -D or -U options here
-CDEFS = -DF_CPU=8000000ul
+CDEFS = -DF_CPU=1000000ul
 
 # Place -I options here
 CINCS =
