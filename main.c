@@ -23,7 +23,7 @@
 enum ledstatus
 {
     OFF, DIM, ON
-};
+} __attribute__((packed));
 
 enum ledstatus leds[2 * NLEDS];
 
