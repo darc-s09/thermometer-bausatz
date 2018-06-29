@@ -9,23 +9,41 @@
  */
 
 #include <string.h>
+#include <stdbool.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <avr/power.h>
+#include <avr/eeprom.h>
 
 #define NLEDS 6 // per group
 #define NDIM  20 // duty cycle for dimmed LEDs
 
 #define F_TIMER (100 * NLEDS) // 100 Hz per LED
 
+#define EE_CALIB_LOC ((void *)16) // avoid using cell #0
+
 enum ledstatus
 {
     OFF, DIM, DIM_FLASH, FLASH, ON
 } __attribute__((packed));
 
+enum opmode
+{
+    NORMAL, CALIBRATION
+} __attribute__((packed));
+
+struct eeprom_data
+{
+    int t_offset;
+    bool led_stripe;
+} __attribute__((packed));
+
 enum ledstatus leds[2 * NLEDS];
+enum opmode opmode;
+
+struct eeprom_data calib_data;
 
 static volatile uint32_t ticks;
 static volatile uint16_t adc_result;
@@ -210,6 +228,74 @@ setup(void)
     ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN);
 
     sei();
+
+    eeprom_read_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
+    if (calib_data.t_offset == (int)0xFFFF)
+    {
+        // EEPROM not written yet, use default data
+        calib_data.t_offset = 275;
+        calib_data.led_stripe = false;
+        eeprom_write_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
+    }
+}
+
+static void
+display_temperature(uint16_t t)
+{
+    double temp = 1.1 * ((double)t - calib_data.t_offset);
+
+    if ((PINA & _BV(7)) == 0)
+    {
+        // jumper 1 set: range 12 ... 32 degC
+        memset(leds, OFF, sizeof leds);
+        if (temp < 12.0)
+        {
+            // low temperature: flash-dim first LED
+            leds[0] = DIM_FLASH;
+        }
+        else if (temp > 32.0)
+        {
+            // over temperature: flash-dim all LEDs
+            memset(leds, DIM_FLASH, sizeof leds);
+        }
+        else
+        {
+            // normal range: dim LEDs below actual value, turn on LED
+            // for actual value
+            if (calib_data.led_stripe)
+                memset(leds, DIM, (int)(temp - 12) / 2);
+            if ((int)temp & 1)
+                leds[(int)(temp - 12) / 2] = ON;
+            else
+                leds[(int)(temp - 12) / 2] = FLASH;
+        }
+    }
+    else
+    {
+        // jumper 1 pulled: range 0 ... 40 degC
+        memset(leds, OFF, sizeof leds);
+        if (temp < 0.0)
+        {
+            // low temperature: flash-dim first LED
+            leds[0] = DIM_FLASH;
+        }
+        else if (temp > 40.0)
+        {
+            // over temperature: flash-dim all LEDs
+            memset(leds, DIM_FLASH, sizeof leds);
+        }
+        else
+        {
+            // normal range: dim LEDs below actual value, turn on LED
+            // for actual value
+            if (calib_data.led_stripe)
+                memset(leds, DIM, (int)(temp) / 4);
+            if (((int)temp & 3) < 2)
+                leds[(int)(temp) / 4] = ON;
+            else
+                leds[(int)(temp) / 4] = FLASH;
+        }
+    }
 }
 
 static void
@@ -219,59 +305,31 @@ loop(void)
 
     if ((t = adc_result) != 0)
     {
-        adc_result = 0;
         // new temperature value
-        double temp = 1.1 * ((double)t - 275);
-        if ((PINA & _BV(7)) == 0)
+        adc_result = 0;
+        display_temperature(t);
+    }
+
+    if ((PINA & _BV(3)) == 0)
+    {
+        // jumper 2 set: calibration mode
+        opmode = CALIBRATION;
+    }
+    else
+    {
+        // jumper 2 pulled: normal mode
+        if (opmode == CALIBRATION)
         {
-            // jumper 1 set: range 12 ... 32 degC
-            memset(leds, OFF, sizeof leds);
-            if (temp < 12.0)
-            {
-                // low temperature: flash-dim first LED
-                leds[0] = DIM_FLASH;
-            }
-            else if (temp > 32.0)
-            {
-                // over temperature: flash-dim all LEDs
-                memset(leds, DIM_FLASH, sizeof leds);
-            }
-            else
-            {
-                // normal range: dim LEDs below actual value, turn on LED
-                // for actual value
-                memset(leds, DIM, (int)(temp - 12) / 2);
-                if ((int)temp & 1)
-                    leds[(int)(temp - 12) / 2] = ON;
-                else
-                    leds[(int)(temp - 12) / 2] = FLASH;
-            }
+            // leaving calibration mode: store
+            // calibration data in EEPROM
+            eeprom_write_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
         }
-        else
-        {
-            // jumper 1 pulled: range 0 ... 40 degC
-            memset(leds, OFF, sizeof leds);
-            if (temp < 0.0)
-            {
-                // low temperature: flash-dim first LED
-                leds[0] = DIM_FLASH;
-            }
-            else if (temp > 40.0)
-            {
-                // over temperature: flash-dim all LEDs
-                memset(leds, DIM_FLASH, sizeof leds);
-            }
-            else
-            {
-                // normal range: dim LEDs below actual value, turn on LED
-                // for actual value
-                memset(leds, DIM, (int)(temp) / 4);
-                if (((int)temp & 3) < 2)
-                    leds[(int)(temp) / 4] = ON;
-                else
-                    leds[(int)(temp) / 4] = FLASH;
-            }
-        }
+        opmode = NORMAL;
+    }
+
+    if (opmode == CALIBRATION)
+    {
+        // XXX implement actual calibration here
     }
 
     sleep_mode();
