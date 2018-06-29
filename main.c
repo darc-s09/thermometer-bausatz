@@ -222,26 +222,55 @@ loop(void)
         adc_result = 0;
         // new temperature value
         double temp = 1.1 * ((double)t - 275);
-        memset(leds, OFF, sizeof leds);
-        if (temp < 12.0)
+        if ((PINA & _BV(7)) == 0)
         {
-            // low temperature: flash-dim first LED
-            leds[0] = DIM_FLASH;
-        }
-        else if (temp > 32.0)
-        {
-            // over temperature: flash-dim all LEDs
-            memset(leds, DIM_FLASH, sizeof leds);
+            // jumper 1 set: range 12 ... 32 degC
+            memset(leds, OFF, sizeof leds);
+            if (temp < 12.0)
+            {
+                // low temperature: flash-dim first LED
+                leds[0] = DIM_FLASH;
+            }
+            else if (temp > 32.0)
+            {
+                // over temperature: flash-dim all LEDs
+                memset(leds, DIM_FLASH, sizeof leds);
+            }
+            else
+            {
+                // normal range: dim LEDs below actual value, turn on LED
+                // for actual value
+                memset(leds, DIM, (int)(temp - 12) / 2);
+                if ((int)temp & 1)
+                    leds[(int)(temp - 12) / 2] = ON;
+                else
+                    leds[(int)(temp - 12) / 2] = FLASH;
+            }
         }
         else
         {
-            // normal range: dim LEDs below actual value, turn on LED
-            // for actual value
-            memset(leds, DIM, (int)(temp - 12) / 2);
-            if ((int)temp & 1)
-                leds[(int)(temp - 12) / 2] = ON;
+            // jumper 1 pulled: range 0 ... 40 degC
+            memset(leds, OFF, sizeof leds);
+            if (temp < 0.0)
+            {
+                // low temperature: flash-dim first LED
+                leds[0] = DIM_FLASH;
+            }
+            else if (temp > 40.0)
+            {
+                // over temperature: flash-dim all LEDs
+                memset(leds, DIM_FLASH, sizeof leds);
+            }
             else
-                leds[(int)(temp - 12) / 2] = FLASH;
+            {
+                // normal range: dim LEDs below actual value, turn on LED
+                // for actual value
+                memset(leds, DIM, (int)(temp) / 4);
+                if (((int)temp & 3) < 2)
+                    leds[(int)(temp) / 4] = ON;
+                else
+                    leds[(int)(temp) / 4] = FLASH;
+            }
         }
     }
 
