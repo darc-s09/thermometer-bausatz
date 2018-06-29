@@ -24,6 +24,10 @@
 
 #define EE_CALIB_LOC ((void *)16) // avoid using cell #0
 
+#define CALIB_OFFSET_UP()     (calib_jumpers & _BV(4))
+#define CALIB_OFFSET_DOWN()   (calib_jumpers & _BV(5))
+#define CALIB_TOGGLE_STRIPE() (calib_jumpers & _BV(6))
+
 enum ledstatus
 {
     OFF, DIM, DIM_FLASH, FLASH, ON
@@ -47,6 +51,8 @@ struct eeprom_data calib_data;
 
 static volatile uint32_t ticks;
 static volatile uint16_t adc_result;
+
+static uint8_t calib_jumpers;
 
 static uint8_t cycle;
 
@@ -192,6 +198,7 @@ ISR(TIM1_COMPA_vect)
     {
         t = 0;
         start_adc();
+        calib_jumpers = ~(PINA & 0b01110000); // PA4 ... PA6
         ticks++;
     }
 
@@ -329,7 +336,13 @@ loop(void)
 
     if (opmode == CALIBRATION)
     {
-        // XXX implement actual calibration here
+        if (CALIB_TOGGLE_STRIPE())
+            calib_data.led_stripe = !calib_data.led_stripe;
+        else if (CALIB_OFFSET_UP())
+            calib_data.t_offset++;
+        else if (CALIB_OFFSET_DOWN())
+            calib_data.t_offset--;
+        calib_jumpers = 0;
     }
 
     sleep_mode();
