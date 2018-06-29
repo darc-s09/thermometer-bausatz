@@ -22,12 +22,12 @@
 
 enum ledstatus
 {
-    OFF, DIM, ON
+    OFF, DIM, DIM_FLASH, FLASH, ON
 } __attribute__((packed));
 
 enum ledstatus leds[2 * NLEDS];
 
-static volatile uint32_t seconds;
+static volatile uint32_t ticks;
 static volatile uint16_t adc_result;
 
 static uint8_t cycle;
@@ -62,7 +62,8 @@ led_update(void)
     uint8_t port = PORTA & ~0b00000111; // preserve all non-LED bits,
     uint8_t ddr  = DDRA  & ~0b00000111; // but mask LED bits to 0
 
-    if (leds[cycle] == OFF)
+    if (leds[cycle] == OFF ||
+        ((leds[cycle] == DIM_FLASH || leds[cycle] == FLASH) && (ticks & 1) == 0))
     {
         ddr |= 0b00000111; // output low, all off
     }
@@ -95,7 +96,8 @@ led_update(void)
     port = PORTB & ~0b00000111;
     ddr = DDRB & ~0b00000111;
 
-    if (leds[cycle + NLEDS] == OFF)
+    if (leds[cycle + NLEDS] == OFF ||
+        ((leds[cycle + NLEDS] == DIM_FLASH || leds[cycle + NLEDS] == FLASH) && (ticks & 1) == 0))
     {
         ddr |= 0b00000111; // output low, all off
     }
@@ -149,14 +151,14 @@ static void
 led_dim(void)
 {
     // LEDs are on PA0, PA1, PA2
-    if (leds[cycle] == DIM)
+    if (leds[cycle] == DIM || leds[cycle] == DIM_FLASH)
     {
         PORTA &= ~0b00000111; // output low
         DDRA  |=  0b00000111;
     }
 
     // LEDs are on PB0, PB1, PB2
-    if (leds[cycle + NLEDS] == DIM)
+    if (leds[cycle + NLEDS] == DIM || leds[cycle + NLEDS] == DIM_FLASH)
     {
         PORTB &= ~0b00000111; // output low
         DDRB  |=  0b00000111;
@@ -166,13 +168,13 @@ led_dim(void)
 
 ISR(TIM1_COMPA_vect)
 {
-    static int ticks;
+    static int t;
 
-    if (++ticks == F_TIMER)
+    if (++t == F_TIMER / 2)
     {
-        ticks = 0;
+        t = 0;
         start_adc();
-        seconds++;
+        ticks++;
     }
 
     led_update();
@@ -223,20 +225,23 @@ loop(void)
         memset(leds, OFF, sizeof leds);
         if (temp < 12.0)
         {
-            // low temperature: only dim first LED
-            leds[0] = DIM;
+            // low temperature: flash-dim first LED
+            leds[0] = DIM_FLASH;
         }
         else if (temp > 32.0)
         {
-            // over temperature: dim all LEDs
-            memset(leds, DIM, sizeof leds);
+            // over temperature: flash-dim all LEDs
+            memset(leds, DIM_FLASH, sizeof leds);
         }
         else
         {
             // normal range: dim LEDs below actual value, turn on LED
             // for actual value
             memset(leds, DIM, (int)(temp - 12) / 2);
-            leds[(int)(temp - 12) / 2] = ON;
+            if ((int)temp & 1)
+                leds[(int)(temp - 12) / 2] = ON;
+            else
+                leds[(int)(temp - 12) / 2] = FLASH;
         }
     }
 
