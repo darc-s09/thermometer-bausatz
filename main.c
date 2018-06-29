@@ -17,8 +17,8 @@
 #include <avr/power.h>
 #include <avr/eeprom.h>
 
-#define NLEDS 6 // per group
-#define NDIM  20 // duty cycle for dimmed LEDs
+#define NLEDS 6           // per group
+#define DIM_DUTYCYCLE  20 // duty cycle for dimmed LEDs
 
 #define F_TIMER (100 * NLEDS) // 100 Hz per LED
 
@@ -53,7 +53,6 @@ static volatile uint32_t ticks;
 static volatile uint16_t adc_result;
 
 static uint8_t calib_jumpers;
-
 static uint8_t cycle;
 
 /*
@@ -89,7 +88,9 @@ led_update(void)
     if (leds[cycle] == OFF ||
         ((leds[cycle] == DIM_FLASH || leds[cycle] == FLASH) && (ticks & 1) == 0))
     {
-        ddr |= 0b00000111; // output low, all off
+        // Current LED must be turned off
+        // output low, all off
+        ddr |= 0b00000111;
     }
     else // this LED needs to be turned on during this cycle
     {
@@ -123,7 +124,9 @@ led_update(void)
     if (leds[cycle + NLEDS] == OFF ||
         ((leds[cycle + NLEDS] == DIM_FLASH || leds[cycle + NLEDS] == FLASH) && (ticks & 1) == 0))
     {
-        ddr |= 0b00000111; // output low, all off
+        // Current LED must be turned off
+        // output low, all off
+        ddr |= 0b00000111;
     }
     else
     {
@@ -150,6 +153,9 @@ led_update(void)
     DDRB = ddr;
 }
 
+/*
+ * Start one ADC temperature conversion
+ */
 static void
 start_adc(void)
 {
@@ -159,17 +165,11 @@ start_adc(void)
     ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN) | _BV(ADSC) | _BV(ADIE);
 }
 
-ISR(ADC_vect)
-{
-    adc_result = ADC;
-    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN);
-}
-
 /*
- * Turn off current LEDs if they are in DIM state.
+ * Turn off current LEDs if they are in DIM (or DIM_FLASH) state.
  *
  * Called early during the timer counting cycle.  Remainder of timer
- * period the proceeds with this LED turned off.
+ * period then proceeds with this LED turned off.
  */
 static void
 led_dim(void)
@@ -189,41 +189,73 @@ led_dim(void)
     }
 }
 
+/*
+ * ADC interrupt service: called at end of ADC conversion
+ *
+ * Just registers current ADC readout for later processing (by
+ * display_temperature(), and stops ADC.
+ */
+ISR(ADC_vect)
+{
+    adc_result = ADC;
+    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN);
+}
 
+/*
+ * Timer 1 compare/match A interrupt is triggered when the counter
+ * reaches its final value (where it will automatically restart from
+ * 0).
+ *
+ * This is the basic heartbeat software clock of the system, ticking
+ * with a frequency of F_TIMER.
+ */
 ISR(TIM1_COMPA_vect)
 {
     static int t;
 
+    // At each tick of the heartbeat timer, update the LED
+    // charlieplexing (i.e. configure next LED within its group).
+    led_update();
+
     if (++t == F_TIMER / 2)
     {
+        // Each half second, trigger one temperature measurement, and
+        // read the calibration jumper state from PA4 through PA6.
         t = 0;
         start_adc();
-        calib_jumpers = ~(PINA & 0b01110000); // PA4 ... PA6
+        calib_jumpers = ~PINA & 0b01110000; // PA4 ... PA6
         ticks++;
     }
-
-    led_update();
 }
 
+/*
+ * Timer 1 compare/match B interrupt is triggered early in the counter
+ * cycle, and used to turn off dimmed LEDs quickly.
+ */
 ISR(TIM1_COMPB_vect)
 {
     led_dim();
 }
 
+/*
+ * Initialize everything.
+ */
 static void
 setup(void)
 {
-    clock_prescale_set(clock_div_8);
+    clock_prescale_set(clock_div_8); // => 1 MHz main system clock
 
     /* TIMER1: interrupt each 1/F_TIMER */
     OCR1A = F_CPU / F_TIMER;
-    OCR1B = F_CPU / F_TIMER / NDIM; /* dimmed LED turnoff time */
-    TIMSK1 = _BV(OCIE1A) | _BV(OCIE1B);
-    TCCR1B = _BV(WGM12) | _BV(CS10); /* CTC mode, full clock */
+    OCR1B = F_CPU / F_TIMER / DIM_DUTYCYCLE; /* dimmed LED turnoff time */
+    TIMSK1 = _BV(OCIE1A) | _BV(OCIE1B);      /* enable compare/match
+                                                interrupts A and B */
+    TCCR1B = _BV(WGM12) | _BV(CS10);         /* CTC mode, full clock */
 
     /* PA3: jumper 2 */
     /* PA4/5/6: ISP / USI */
     /* PA7: jumper 1 */
+    /* Enable pullups for all these pins */
     PORTA = _BV(3) | _BV(4) | _BV(5) | _BV(6) | _BV(7);
 
     /* LED group 1: PA0/1/2 */
@@ -236,6 +268,7 @@ setup(void)
 
     sei();
 
+    /* Read in calibration data record from EEPROM */
     eeprom_read_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
     if (calib_data.t_offset == (int)0xFFFF)
     {
@@ -246,14 +279,18 @@ setup(void)
     }
 }
 
+/*
+ * Configure LED display according to measured temperature ADC readout.
+ */
 static void
 display_temperature(uint16_t t)
 {
-    double temp = 1.1 * ((double)t - calib_data.t_offset);
+    double temp = 0.996 * ((double)t - calib_data.t_offset);
 
     if ((PINA & _BV(7)) == 0)
     {
         // jumper 1 set: range 12 ... 32 degC
+
         memset(leds, OFF, sizeof leds);
         if (temp < 12.0)
         {
@@ -267,10 +304,11 @@ display_temperature(uint16_t t)
         }
         else
         {
-            // normal range: dim LEDs below actual value, turn on LED
-            // for actual value
+            // normal range
             if (calib_data.led_stripe)
+                // dim LEDs below actual value when in "stripe" mode
                 memset(leds, DIM, (int)(temp - 12) / 2);
+            // turn on LED for actual value
             if ((int)temp & 1)
                 leds[(int)(temp - 12) / 2] = ON;
             else
@@ -280,6 +318,7 @@ display_temperature(uint16_t t)
     else
     {
         // jumper 1 pulled: range 0 ... 40 degC
+
         memset(leds, OFF, sizeof leds);
         if (temp < 0.0)
         {
@@ -293,10 +332,11 @@ display_temperature(uint16_t t)
         }
         else
         {
-            // normal range: dim LEDs below actual value, turn on LED
-            // for actual value
+            // normal range:
             if (calib_data.led_stripe)
+                // dim LEDs below actual value when in "stripe" mode
                 memset(leds, DIM, (int)(temp) / 4);
+            // turn on LED for actual value
             if (((int)temp & 3) < 2)
                 leds[(int)(temp) / 4] = ON;
             else
@@ -305,6 +345,11 @@ display_temperature(uint16_t t)
     }
 }
 
+/*
+ * Periodic task
+ *
+ * Called once per interrupt (about 2 * F_TIMER times per second).
+ */
 static void
 loop(void)
 {
@@ -312,7 +357,7 @@ loop(void)
 
     if ((t = adc_result) != 0)
     {
-        // new temperature value
+        // new temperature value available
         adc_result = 0;
         display_temperature(t);
     }
@@ -334,6 +379,7 @@ loop(void)
         opmode = NORMAL;
     }
 
+    // When in calibration mode, handle the individual jumpers
     if (opmode == CALIBRATION)
     {
         if (CALIB_TOGGLE_STRIPE())
@@ -347,6 +393,7 @@ loop(void)
 
     sleep_mode();
 }
+
 
 int main(void) __attribute__((OS_main));
 int
