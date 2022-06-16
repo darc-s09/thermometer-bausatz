@@ -7,7 +7,7 @@
 # $Id$
 
 
-MCU = attiny44
+MCU = attiny24
 FORMAT = ihex
 TARGET = thermometer
 SRC = main.c
