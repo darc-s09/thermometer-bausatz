@@ -12,7 +12,46 @@
   )
 
   (lib_symbols
-    (symbol "battery_holder:battery_holder" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
+    (symbol "misc:Image" (in_bom yes) (on_board yes)
+      (property "Reference" "B?" (at -2.54 5.08 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Value" "" (at 0 0 0)
+        (effects (font (size 1.27 1.27)))
+      )
+      (property "Footprint" "" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (property "Datasheet" "" (at 0 0 0)
+        (effects (font (size 1.27 1.27)) hide)
+      )
+      (symbol "Image_0_1"
+        (rectangle (start -3.81 3.81) (end 3.81 -3.81)
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy -2.54 -2.54)
+            (xy 1.27 2.54)
+            (xy 2.54 -2.54)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+        (polyline
+          (pts
+            (xy -2.54 0)
+            (xy -1.27 2.54)
+            (xy 0 1.27)
+            (xy 0 1.27)
+          )
+          (stroke (width 0) (type default))
+          (fill (type none))
+        )
+      )
+    )
+    (symbol "misc:battery_holder" (pin_names (offset 1.016)) (in_bom yes) (on_board yes)
       (property "Reference" "B" (at 0 0 0)
         (effects (font (size 1.524 1.524)))
       )
@@ -615,7 +654,6 @@
       )
     )
   )
-
 
   (junction (at 55.88 45.72) (diameter 0) (color 0 0 0 0)
     (uuid 0011f742-1039-4c42-80c4-ca91209686b7)
@@ -1367,6 +1405,11 @@
     )
   )
 
+  (text "QR-Code\nhttps://www.darc.de/der-club/distrikte/s/ortsverbaende/09/bastelecke-des-ov-s09/"
+    (at 43.18 165.1 0)
+    (effects (font (size 1.27 1.27)) (justify left bottom))
+    (uuid 026f9e17-2544-4f0e-9cdb-c8fea4fb36f8)
+  )
   (text "Vcc\nMOSI\nGND" (at 172.72 106.68 0)
     (effects (font (size 1.524 1.524)) (justify left bottom))
     (uuid 2ebe9f79-e785-4ca9-a923-222c0e99e10b)
@@ -2022,7 +2065,7 @@
     )
   )
 
-  (symbol (lib_id "battery_holder:battery_holder") (at 76.2 143.51 0) (unit 1)
+  (symbol (lib_id "misc:battery_holder") (at 76.2 143.51 0) (unit 1)
     (in_bom yes) (on_board yes) (dnp no)
     (uuid 00000000-0000-0000-0000-00005b24c352)
     (property "Reference" "B1" (at 76.2 143.51 0)
@@ -2520,6 +2563,30 @@
       (project "thermometer-bausatz"
         (path "/b629b0f3-9b5f-44da-8346-e958d88e091c"
           (reference "N12") (unit 1)
+        )
+      )
+    )
+  )
+
+  (symbol (lib_id "misc:Image") (at 76.2 157.48 0) (unit 1)
+    (in_bom yes) (on_board yes) (dnp no) (fields_autoplaced)
+    (uuid 50707287-b272-42a7-83ba-ec299509faca)
+    (property "Reference" "B2" (at 80.645 157.7968 0)
+      (effects (font (size 1.27 1.27)) (justify left))
+    )
+    (property "Value" "~" (at 76.2 157.48 0)
+      (effects (font (size 1.27 1.27)))
+    )
+    (property "Footprint" "Thermometer-Bausatz:bastelecke-url" (at 76.2 157.48 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (property "Datasheet" "" (at 76.2 157.48 0)
+      (effects (font (size 1.27 1.27)) hide)
+    )
+    (instances
+      (project "thermometer-bausatz"
+        (path "/b629b0f3-9b5f-44da-8346-e958d88e091c"
+          (reference "B2") (unit 1)
         )
       )
     )
