@@ -9,6 +9,8 @@
  */
 
 #include <string.h>
+#include <stdbool.h>
+#include <math.h>
 
 #include <avr/power.h>
 #include <avr/io.h>
@@ -57,9 +59,9 @@ led_update(void)
         cycle = 0;
     }
 
-    // LEDs are on PA0, PA1, PA2
-    uint8_t port = PORTA & ~0b00000111; // preserve all non-LED bits,
-    uint8_t ddr  = DDRA  & ~0b00000111; // but mask LED bits to 0
+    // LEDs are on PD7, PD6, PD5
+    uint8_t port = PORTD.OUT & ~0b00000111; // preserve all non-LED bits,
+    uint8_t ddr  = PORTD.DIR  & ~0b00000111; // but mask LED bits to 0
 
     if (leds[cycle] == OFF)
     {
@@ -70,13 +72,13 @@ led_update(void)
         /*
          * charlieplexing matrix lower LEDs
          *
-         * LED1: PA0 high, PA1 low,  PA2 off
-         * LED2: PA0 low,  PA1 high, PA2 off
-         * LED3: PA0 off,  PA1 low,  PA2 high
-         * LED4: PA0 off,  PA1 high, PA2 low
-         * LED5: PA0 high, PA1 off,  PA2 low
-         * LED6: PA0 low,  PA1 off,  PA2 high
-         * off:  PA0 low,  PA1 low,  PA2 low
+         * LED1: PD7 high, PD6 low,  PD5 off
+         * LED2: PD7 low,  PD6 high, PD5 off
+         * LED3: PD7 off,  PD6 low,  PD5 high
+         * LED4: PD7 off,  PD6 high, PD5 low
+         * LED5: PD7 high, PD6 off,  PD5 low
+         * LED6: PD7 low,  PD6 off,  PD5 high
+         * off:  PD7 low,  PD6 low,  PD5 low
          */
 
         if (cycle == 0)      { ddr |= 0b00000011; port |= 0b00000001; }
@@ -87,12 +89,12 @@ led_update(void)
         else                 { ddr |= 0b00000101; port |= 0b00000100; }
     }
 
-    PORTA = port;
-    DDRA = ddr;
+    PORTD.OUT = port;
+    PORTD.DIR = ddr;
 
-    // LEDs are on PB0, PB1, PB2
-    port = PORTB & ~0b00000111;
-    ddr = DDRB & ~0b00000111;
+    // LEDs are on PC3, PC2, PC1
+    port = PORTC.OUT & ~0b00000111;
+    ddr = PORTC.DIR & ~0b00000111;
 
     if (leds[cycle + NLEDS] == OFF)
     {
@@ -103,13 +105,13 @@ led_update(void)
         /*
          * charlieplexing matrix upper LEDs
          *
-         * LED7:  PB0 high, PB1 off,  PB2 low
-         * LED8:  PB0 low,  PB1 off,  PB2 high
-         * LED9:  PB0 off,  PB1 high, PB2 low
-         * LED10: PB0 off,  PB1 low,  PB2 high
-         * LED11: PB0 high, PB1 low,  PB2 off
-         * LED12: PB0 low,  PB1 high, PB2 off  // not mounted
-         * off:   PB0 low,  PB1 low,  PB2 low
+         * LED7:  PC3 high, PC2 off,  PC1 low
+         * LED8:  PC3 low,  PC2 off,  PC1 high
+         * LED9:  PC3 off,  PC2 high, PC1 low
+         * LED10: PC3 off,  PC2 low,  PC1 high
+         * LED11: PC3 high, PC2 low,  PC1 off
+         * LED12: PC3 low,  PC2 high, PC1 off  // not mounted
+         * off:   PC3 low,  PC2 low,  PC1 low
          */
         if (cycle == 0)      { ddr |= 0b00000101; port |= 0b00000001; }
         else if (cycle == 1) { ddr |= 0b00000101; port |= 0b00000100; }
@@ -119,8 +121,8 @@ led_update(void)
         //else               { ddr |= 0b00000011; port |= 0b00000010; }
     }
 
-    PORTB = port;
-    DDRB = ddr;
+    PORTC.OUT = port;
+    PORTC.DIR = ddr;
 }
 
 /*
@@ -132,23 +134,22 @@ led_update(void)
 static void
 led_dim(void)
 {
-    // LEDs are on PA0, PA1, PA2
+    // LEDs are on PD7, PD6, PD5
     if (leds[cycle] == DIM)
     {
-        PORTA &= ~0b00000111; // output low
-        DDRA  |=  0b00000111;
+        PORTD.OUT &= ~0b00000111; // output low
+        PORTD.DIR  |=  0b00000111;
     }
 
-    // LEDs are on PB0, PB1, PB2
+    // LEDs are on PC3, PC2, PC1
     if (leds[cycle + NLEDS] == DIM)
     {
-        PORTB &= ~0b00000111; // output low
-        DDRB  |=  0b00000111;
+        PORTC.OUT &= ~0b00000111; // output low
+        PORTC.DIR  |=  0b00000111;
     }
 }
 
-
-ISR(TIM1_COMPA_vect)
+ISR(TCE0_OVF_vect)
 {
     static int t;
 
@@ -161,7 +162,7 @@ ISR(TIM1_COMPA_vect)
     led_update();
 }
 
-ISR(TIM1_COMPB_vect)
+ISR(TCE0_CMP0_vect)
 {
     led_dim();
 }
@@ -169,21 +170,29 @@ ISR(TIM1_COMPB_vect)
 static void
 setup(void)
 {
-    clock_prescale_set(clock_div_8);
+    // 20 MHz high frequency RC oscillator / 24 => 0.866 MHz main system clock
+    CLKCTRL.MCLKCTRLB =  CLKCTRL_PEN_bm | CLKCTRL_PDIV_DIV24_gc;
+    CLKCTRL.MCLKTIMEBASE = 1; // actually 1.2 µs, must be larger than 1 µs
 
-    /* TIMER1: interrupt each 1/F_TIMER */
-    OCR1A = F_CPU / F_TIMER;
-    OCR1B = F_CPU / F_TIMER / NDIM; /* dimmed LED turnoff time */
-    TIMSK1 = _BV(OCIE1A) | _BV(OCIE1B);
-    TCCR1B = _BV(WGM12) | _BV(CS10); /* CTC mode, full clock */
+    /* TCE0: interrupt each 1/F_TIMER */
+    TCE0.PER = F_CPU / F_TIMER;
+    TCE0.CMP0 = F_CPU / F_TIMER / DIM_DUTYCYCLE; /* dimmed LED turnoff time */
+    TCE0.INTCTRL = TCE_CMP0_bm | TCE_OVF_bm;  /* overflow and compare 0 interrupts */
+    TCE0.CTRLA = TCE_ENABLE_bm;
 
-    /* PA3: jumper 2 */
-    /* PA4/5/6: ISP / USI */
-    /* PA7: jumper 1 */
-    PORTA = _BV(3) | _BV(4) | _BV(5) | _BV(6) | _BV(7);
+    /* PD4: jumper 2 */
+    /* PF7: UPDI */
+    /* PA0/1: spare/adjust */
+    /* PC0: jumper 1 */
+    /* Enable pullups for all these pins */
+    PORTD.PIN4CTRL = PORT_PULLUPEN_bm;
+    PORTF.PIN7CTRL = PORT_PULLUPEN_bm;
+    PORTA.PIN0CTRL = PORT_PULLUPEN_bm;
+    PORTA.PIN1CTRL = PORT_PULLUPEN_bm;
+    PORTC.PIN1CTRL = PORT_PULLUPEN_bm;
 
-    /* LED group 1: PA0/1/2 */
-    /* LED group 2: PB0/1/2 */
+    /* LED group 1: PD7/6/5 */
+    /* LED group 2: PC3/2/1 */
 
     sei();
 }

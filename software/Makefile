@@ -7,7 +7,7 @@
 # $Id$
 
 
-MCU = attiny24
+MCU = avr16eb14
 FORMAT = ihex
 TARGET = thermometer
 SRC = main.c
@@ -30,7 +30,7 @@ DEBUG = dwarf-4
 CSTANDARD = -std=gnu99
 
 # Place -D or -U options here
-CDEFS = -DF_CPU=1000000ul
+CDEFS = -DF_CPU="(20E6 / 24)" # 20 MHz internal oscillator, divided by 24
 
 # Place -I options here
 CINCS =
