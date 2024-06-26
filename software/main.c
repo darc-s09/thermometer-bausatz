@@ -10,6 +10,7 @@
 
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -24,9 +25,9 @@
 
 #define EE_CALIB_LOC ((void *)16) // avoid using cell #0
 
-#define CALIB_OFFSET_UP()     (calib_jumpers & _BV(4))
-#define CALIB_OFFSET_DOWN()   (calib_jumpers & _BV(5))
-#define CALIB_TOGGLE_STRIPE() (calib_jumpers & _BV(6))
+#define CALIB_OFFSET_UP()     (calib_jumpers & 1)
+#define CALIB_OFFSET_DOWN()   (calib_jumpers & 2)
+#define CALIB_TOGGLE_STRIPE() (calib_jumpers & 4)
 
 enum ledstatus
 {
@@ -81,9 +82,9 @@ led_update(void)
         cycle = 0;
     }
 
-    // LEDs are on PA0, PA1, PA2
-    uint8_t port = PORTA & ~0b00000111; // preserve all non-LED bits,
-    uint8_t ddr  = DDRA  & ~0b00000111; // but mask LED bits to 0
+    // LEDs are on PD7, PD6, PD5
+    uint8_t port = PORTD.OUT & ~0b00000111; // preserve all non-LED bits,
+    uint8_t ddr  = PORTD.DIR  & ~0b00000111; // but mask LED bits to 0
 
     if (leds[cycle] == OFF ||
         ((leds[cycle] == DIM_FLASH || leds[cycle] == FLASH) && (ticks & 1) == 0))
@@ -97,13 +98,13 @@ led_update(void)
         /*
          * charlieplexing matrix lower LEDs
          *
-         * LED1: PA0 high, PA1 low,  PA2 off
-         * LED2: PA0 low,  PA1 high, PA2 off
-         * LED3: PA0 off,  PA1 low,  PA2 high
-         * LED4: PA0 off,  PA1 high, PA2 low
-         * LED5: PA0 high, PA1 off,  PA2 low
-         * LED6: PA0 low,  PA1 off,  PA2 high
-         * off:  PA0 low,  PA1 low,  PA2 low
+         * LED1: PD7 high, PD6 low,  PD5 off
+         * LED2: PD7 low,  PD6 high, PD5 off
+         * LED3: PD7 off,  PD6 low,  PD5 high
+         * LED4: PD7 off,  PD6 high, PD5 low
+         * LED5: PD7 high, PD6 off,  PD5 low
+         * LED6: PD7 low,  PD6 off,  PD5 high
+         * off:  PD7 low,  PD6 low,  PD5 low
          */
 
         if (cycle == 0)      { ddr |= 0b00000011; port |= 0b00000001; }
@@ -114,12 +115,12 @@ led_update(void)
         else                 { ddr |= 0b00000101; port |= 0b00000100; }
     }
 
-    PORTA = port;
-    DDRA = ddr;
+    PORTD.OUT = port;
+    PORTD.DIR = ddr;
 
-    // LEDs are on PB0, PB1, PB2
-    port = PORTB & ~0b00000111;
-    ddr = DDRB & ~0b00000111;
+    // LEDs are on PC3, PC2, PC1
+    port = PORTC.OUT & ~0b00000111;
+    ddr = PORTC.DIR & ~0b00000111;
 
     if (leds[cycle + NLEDS] == OFF ||
         ((leds[cycle + NLEDS] == DIM_FLASH || leds[cycle + NLEDS] == FLASH) && (ticks & 1) == 0))
@@ -133,13 +134,13 @@ led_update(void)
         /*
          * charlieplexing matrix upper LEDs
          *
-         * LED7:  PB0 high, PB1 off,  PB2 low
-         * LED8:  PB0 low,  PB1 off,  PB2 high
-         * LED9:  PB0 off,  PB1 high, PB2 low
-         * LED10: PB0 off,  PB1 low,  PB2 high
-         * LED11: PB0 high, PB1 low,  PB2 off
-         * LED12: PB0 low,  PB1 high, PB2 off  // not mounted
-         * off:   PB0 low,  PB1 low,  PB2 low
+         * LED7:  PC3 high, PC2 off,  PC1 low
+         * LED8:  PC3 low,  PC2 off,  PC1 high
+         * LED9:  PC3 off,  PC2 high, PC1 low
+         * LED10: PC3 off,  PC2 low,  PC1 high
+         * LED11: PC3 high, PC2 low,  PC1 off
+         * LED12: PC3 low,  PC2 high, PC1 off  // not mounted
+         * off:   PC3 low,  PC2 low,  PC1 low
          */
         if (cycle == 0)      { ddr |= 0b00000101; port |= 0b00000001; }
         else if (cycle == 1) { ddr |= 0b00000101; port |= 0b00000100; }
@@ -149,8 +150,8 @@ led_update(void)
         //else               { ddr |= 0b00000011; port |= 0b00000010; }
     }
 
-    PORTB = port;
-    DDRB = ddr;
+    PORTC.OUT = port;
+    PORTC.DIR = ddr;
 }
 
 /*
@@ -159,10 +160,7 @@ led_update(void)
 static void
 start_adc(void)
 {
-    /* divider 1:64 => 125 kHz ADC clock */
-    ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN) | _BV(ADIF);
-    // now, actually start the conversion
-    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN) | _BV(ADSC) | _BV(ADIE);
+    ADC0.COMMAND = ADC_MODE_SINGLE_12BIT_gc | ADC_START_IMMEDIATE_gc;
 }
 
 /*
@@ -174,19 +172,41 @@ start_adc(void)
 static void
 led_dim(void)
 {
-    // LEDs are on PA0, PA1, PA2
+    // LEDs are on PD7, PD6, PD5
     if (leds[cycle] == DIM || leds[cycle] == DIM_FLASH)
     {
-        PORTA &= ~0b00000111; // output low
-        DDRA  |=  0b00000111;
+        PORTD.OUT &= ~0b00000111; // output low
+        PORTD.DIR  |=  0b00000111;
     }
 
-    // LEDs are on PB0, PB1, PB2
+    // LEDs are on PC3, PC2, PC1
     if (leds[cycle + NLEDS] == DIM || leds[cycle + NLEDS] == DIM_FLASH)
     {
-        PORTB &= ~0b00000111; // output low
-        DDRB  |=  0b00000111;
+        PORTC.OUT &= ~0b00000111; // output low
+        PORTC.DIR  |=  0b00000111;
     }
+}
+
+/*
+ * Read the calibration jumpers
+ *
+ * bit 0 -> PF7: UP
+ * bit 1 -> PA1: DOWN
+ * bit 2 -> PA0: MODE
+ */
+static uint8_t
+get_calib_jumpers(void)
+{
+    uint8_t val;
+
+    uint8_t portf_in = PORTF.IN;
+    uint8_t porta_in = PORTA.IN;
+
+    val = (portf_in & _BV(7)) >> 7;  // bit 7 -> bit 0
+    val |= (porta_in & _BV(1));      // bit 1 -> bit 1
+    val |= (porta_in & _BV(0)) << 2; // bit 0 -> bit 2
+
+    return val;
 }
 
 /*
@@ -195,21 +215,20 @@ led_dim(void)
  * Just registers current ADC readout for later processing (by
  * display_temperature(), and stops ADC.
  */
-ISR(ADC_vect)
+ISR(ADC0_RESRDY_vect)
 {
-    adc_result = ADC;
-    ADCSRA = _BV(ADPS0) | _BV(ADPS1) | _BV(ADEN);
+    adc_result = (uint16_t)ADC0.RESULT;
 }
 
 /*
- * Timer 1 compare/match A interrupt is triggered when the counter
+ * Timer/counter E0 overflow interrupt is triggered when the counter
  * reaches its final value (where it will automatically restart from
  * 0).
  *
  * This is the basic heartbeat software clock of the system, ticking
  * with a frequency of F_TIMER.
  */
-ISR(TIM1_COMPA_vect)
+ISR(TCE0_OVF_vect)
 {
     static int t;
 
@@ -223,16 +242,16 @@ ISR(TIM1_COMPA_vect)
         // read the calibration jumper state from PA4 through PA6.
         t = 0;
         start_adc();
-        calib_jumpers = ~PINA & 0b01110000; // PA4 ... PA6
+        calib_jumpers = get_calib_jumpers();
         ticks++;
     }
 }
 
 /*
- * Timer 1 compare/match B interrupt is triggered early in the counter
+ * Timer/counter E0 compare/match 0 interrupt is triggered early in the counter
  * cycle, and used to turn off dimmed LEDs quickly.
  */
-ISR(TIM1_COMPB_vect)
+ISR(TCE0_CMP0_vect)
 {
     led_dim();
 }
@@ -243,28 +262,40 @@ ISR(TIM1_COMPB_vect)
 static void
 setup(void)
 {
-    clock_prescale_set(clock_div_8); // => 1 MHz main system clock
+    // 20 MHz high frequency RC oscillator / 24 => 0.866 MHz main system clock
+    CLKCTRL.MCLKCTRLB =  CLKCTRL_PEN_bm | CLKCTRL_PDIV_DIV24_gc;
+    CLKCTRL.MCLKTIMEBASE = 1; // actually 1.2 µs, must be larger than 1 µs
 
-    /* TIMER1: interrupt each 1/F_TIMER */
-    OCR1A = F_CPU / F_TIMER;
-    OCR1B = F_CPU / F_TIMER / DIM_DUTYCYCLE; /* dimmed LED turnoff time */
-    TIMSK1 = _BV(OCIE1A) | _BV(OCIE1B);      /* enable compare/match
-                                                interrupts A and B */
-    TCCR1B = _BV(WGM12) | _BV(CS10);         /* CTC mode, full clock */
+    /* TCE0: interrupt each 1/F_TIMER */
+    TCE0.PER = F_CPU / F_TIMER;
+    TCE0.CMP0 = F_CPU / F_TIMER / DIM_DUTYCYCLE; /* dimmed LED turnoff time */
+    TCE0.INTCTRL = TCE_CMP0_bm | TCE_OVF_bm;  /* overflow and compare 0 interrupts */
+    TCE0.CTRLA = TCE_ENABLE_bm;
 
-    /* PA3: jumper 2 */
-    /* PA4/5/6: ISP / USI */
-    /* PA7: jumper 1 */
+    /* PD4: jumper 2 */
+    /* PF7: UPDI */
+    /* PA0/1: spare/adjust */
+    /* PC0: jumper 1 */
     /* Enable pullups for all these pins */
-    PORTA = _BV(3) | _BV(4) | _BV(5) | _BV(6) | _BV(7);
+    PORTD.PIN4CTRL = PORT_PULLUPEN_bm;
+    PORTF.PIN7CTRL = PORT_PULLUPEN_bm;
+    PORTA.PIN0CTRL = PORT_PULLUPEN_bm;
+    PORTA.PIN1CTRL = PORT_PULLUPEN_bm;
+    PORTC.PIN1CTRL = PORT_PULLUPEN_bm;
 
-    /* LED group 1: PA0/1/2 */
-    /* LED group 2: PB0/1/2 */
+    /* LED group 1: PD7/6/5 */
+    /* LED group 2: PC3/2/1 */
 
-    /* ADC: internal 1.1 V reference, channel 8 (temp sensor) */
-    ADMUX = _BV(REFS1) | 0b100010;
-    /* divider 1:64 => 125 kHz ADC clock */
-    ADCSRA = _BV(ADPS2) | _BV(ADPS1) |_BV(ADEN);
+    /* ADC: internal 1.024 V reference, temperature sensor channel */
+    ADC0.CTRLC = ADC_REFSEL_1V024_gc;
+    ADC0.MUXPOS = ADC_MUXPOS_TEMPSENSE_gc;
+    /* ADC clock must be between 300 kHz and 2 MHz - use divider 2
+       (minimal divider) => 417 kHz ADC clock */
+    ADC0.CTRLB = ADC_PRESC_DIV2_gc;
+    /* Sample duration 32 µs */
+    ADC0.CTRLE = (uint16_t)(ceil(32E-6 * (F_CPU / 2))); // => 14 clock cycles
+    /* Enable result interrupt */
+    ADC0.INTCTRL = ADC_RESRDY_bm;
 
     sei();
 
@@ -279,15 +310,35 @@ setup(void)
     }
 }
 
+static int16_t
+calc_temperature(uint16_t adc_reading)
+{
+    // this is described in the datasheet
+#define SCALING_FACTOR 4096 // Enables integer in the signature row
+    // Read signed offset from signature row
+    int16_t sigrow_offset = (int16_t) SIGROW.TEMPSENSE1;
+    // Read signed slope from signature row
+    int16_t sigrow_slope = (int16_t) SIGROW.TEMPSENSE0;
+
+    int32_t temp = ((int32_t) adc_reading) + sigrow_offset;
+    temp *= sigrow_slope; // Result can overflow 16-bit variable
+    temp += SCALING_FACTOR / 2; // Ensures correct rounding on division below
+    temp /= SCALING_FACTOR; // Round to the nearest integer in Kelvin
+
+    int16_t temperature_in_C = temp - 273;
+
+    return temperature_in_C;
+}
+
 /*
  * Configure LED display according to measured temperature ADC readout.
  */
 static void
-display_temperature(uint16_t t)
+display_temperature(int16_t t)
 {
     int temp = (int)t - calib_data.t_offset;
 
-    if ((PINA & _BV(7)) == 0)
+    if ((PORTC.IN & _BV(0)) == 0)
     {
         // jumper 1 set: range 12 ... 32 degC
 
@@ -359,10 +410,10 @@ loop(void)
     {
         // new temperature value available
         adc_result = 0;
-        display_temperature(t);
+        display_temperature(calc_temperature(t));
     }
 
-    if ((PINA & _BV(3)) == 0)
+    if ((PORTD.IN & _BV(4)) == 0)
     {
         // jumper 2 set: calibration mode
         opmode = CALIBRATION;
