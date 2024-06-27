@@ -267,6 +267,7 @@ static void
 setup(void)
 {
     // 20 MHz high frequency RC oscillator / 24 => 0.866 MHz main system clock
+    CCP = CCP_IOREG_gc;
     CLKCTRL.MCLKCTRLB =  CLKCTRL_PEN_bm | CLKCTRL_PDIV_DIV24_gc;
     CLKCTRL.MCLKTIMEBASE = 1; // actually 1.2 µs, must be larger than 1 µs
 
