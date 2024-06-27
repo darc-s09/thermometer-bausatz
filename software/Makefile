@@ -84,7 +84,7 @@ LDFLAGS = $(EXTMEMOPTS) $(LDMAP) $(PRINTF_LIB) $(SCANF_LIB) $(MATH_LIB) -flto -O
 
 # Programming support using avrdude. Settings and variables.
 
-AVRDUDE_PROGRAMMER = avrisp2 -B 100kHz
+AVRDUDE_PROGRAMMER = atmelice_updi
 AVRDUDE_PORT = usb
 
 AVRDUDE_WRITE_FLASH = -U flash:w:$(TARGET).hex
