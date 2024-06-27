@@ -83,15 +83,15 @@ led_update(void)
     }
 
     // LEDs are on PD7, PD6, PD5
-    uint8_t port = PORTD.OUT & ~0b00000111; // preserve all non-LED bits,
-    uint8_t ddr  = PORTD.DIR  & ~0b00000111; // but mask LED bits to 0
+    uint8_t port = PORTD.OUT & ~0b11100000; // preserve all non-LED bits,
+    uint8_t ddr  = PORTD.DIR & ~0b11100000; // but mask LED bits to 0
 
     if (leds[cycle] == OFF ||
         ((leds[cycle] == DIM_FLASH || leds[cycle] == FLASH) && (ticks & 1) == 0))
     {
         // Current LED must be turned off
         // output low, all off
-        ddr |= 0b00000111;
+        ddr |= 0b11100000; // output low, all off
     }
     else // this LED needs to be turned on during this cycle
     {
@@ -107,27 +107,27 @@ led_update(void)
          * off:  PD7 low,  PD6 low,  PD5 low
          */
 
-        if (cycle == 0)      { ddr |= 0b00000011; port |= 0b00000001; }
-        else if (cycle == 1) { ddr |= 0b00000011; port |= 0b00000010; }
-        else if (cycle == 2) { ddr |= 0b00000110; port |= 0b00000100; }
-        else if (cycle == 3) { ddr |= 0b00000110; port |= 0b00000010; }
-        else if (cycle == 4) { ddr |= 0b00000101; port |= 0b00000001; }
-        else                 { ddr |= 0b00000101; port |= 0b00000100; }
+        if (cycle == 0)      { ddr |= 0b01100000; port |= 0b00100000; }
+        else if (cycle == 1) { ddr |= 0b01100000; port |= 0b01000000; }
+        else if (cycle == 2) { ddr |= 0b11000000; port |= 0b10000000; }
+        else if (cycle == 3) { ddr |= 0b11000000; port |= 0b01000000; }
+        else if (cycle == 4) { ddr |= 0b10100000; port |= 0b00100000; }
+        else                 { ddr |= 0b10100000; port |= 0b10000000; }
     }
 
     PORTD.OUT = port;
     PORTD.DIR = ddr;
 
     // LEDs are on PC3, PC2, PC1
-    port = PORTC.OUT & ~0b00000111;
-    ddr = PORTC.DIR & ~0b00000111;
+    port = PORTC.OUT & ~0b00001110;
+    ddr  = PORTC.DIR & ~0b00001110;
 
     if (leds[cycle + NLEDS] == OFF ||
         ((leds[cycle + NLEDS] == DIM_FLASH || leds[cycle + NLEDS] == FLASH) && (ticks & 1) == 0))
     {
         // Current LED must be turned off
         // output low, all off
-        ddr |= 0b00000111;
+        ddr |= 0b00001110; // output low, all off
     }
     else
     {
@@ -142,12 +142,12 @@ led_update(void)
          * LED12: PC3 low,  PC2 high, PC1 off  // not mounted
          * off:   PC3 low,  PC2 low,  PC1 low
          */
-        if (cycle == 0)      { ddr |= 0b00000101; port |= 0b00000001; }
-        else if (cycle == 1) { ddr |= 0b00000101; port |= 0b00000100; }
-        else if (cycle == 2) { ddr |= 0b00000110; port |= 0b00000010; }
-        else if (cycle == 3) { ddr |= 0b00000110; port |= 0b00000100; }
-        else if (cycle == 4) { ddr |= 0b00000011; port |= 0b00000001; }
-        //else               { ddr |= 0b00000011; port |= 0b00000010; }
+        if (cycle == 0)      { ddr |= 0b00001010; port |= 0b00000010; }
+        else if (cycle == 1) { ddr |= 0b00001010; port |= 0b00001000; }
+        else if (cycle == 2) { ddr |= 0b00001100; port |= 0b00000100; }
+        else if (cycle == 3) { ddr |= 0b00001100; port |= 0b00001000; }
+        else if (cycle == 4) { ddr |= 0b00000110; port |= 0b00000010; }
+        //else               { ddr |= 0b00000110; port |= 0b00000100; }
     }
 
     PORTC.OUT = port;
@@ -175,15 +175,15 @@ led_dim(void)
     // LEDs are on PD7, PD6, PD5
     if (leds[cycle] == DIM || leds[cycle] == DIM_FLASH)
     {
-        PORTD.OUT &= ~0b00000111; // output low
-        PORTD.DIR  |=  0b00000111;
+        PORTD.OUT &= ~0b11100000; // output low
+        PORTD.DIR |=  0b11100000;
     }
 
     // LEDs are on PC3, PC2, PC1
     if (leds[cycle + NLEDS] == DIM || leds[cycle + NLEDS] == DIM_FLASH)
     {
-        PORTC.OUT &= ~0b00000111; // output low
-        PORTC.DIR  |=  0b00000111;
+        PORTC.OUT &= ~0b00001110; // output low
+        PORTC.DIR |=  0b00001110;
     }
 }
 
@@ -232,6 +232,8 @@ ISR(TCE0_OVF_vect)
 {
     static int t;
 
+    TCE0.INTFLAGS = TCE_OVF_bm; // clear interrupt flag
+
     // At each tick of the heartbeat timer, update the LED
     // charlieplexing (i.e. configure next LED within its group).
     led_update();
@@ -253,6 +255,8 @@ ISR(TCE0_OVF_vect)
  */
 ISR(TCE0_CMP0_vect)
 {
+    TCE0.INTFLAGS = TCE_CMP0_bm; // clear interrupt flag
+
     led_dim();
 }
 
