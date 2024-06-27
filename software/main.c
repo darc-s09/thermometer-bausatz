@@ -18,7 +18,7 @@
 #include <avr/sleep.h>
 
 #define NLEDS 6 // per group
-#define NDIM  20 // duty cycle for dimmed LEDs
+#define DIM_DUTYCYCLE  20 // duty cycle for dimmed LEDs
 
 #define F_TIMER (100 * NLEDS) // 100 Hz per LED
 
