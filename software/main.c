@@ -81,12 +81,12 @@ led_update(void)
          * off:  PD7 low,  PD6 low,  PD5 low
          */
 
-        if (cycle == 0)      { ddr |= 0b01100000; port |= 0b00100000; }
-        else if (cycle == 1) { ddr |= 0b01100000; port |= 0b01000000; }
-        else if (cycle == 2) { ddr |= 0b11000000; port |= 0b10000000; }
-        else if (cycle == 3) { ddr |= 0b11000000; port |= 0b01000000; }
-        else if (cycle == 4) { ddr |= 0b10100000; port |= 0b00100000; }
-        else                 { ddr |= 0b10100000; port |= 0b10000000; }
+        if (cycle == 0)      { ddr |= 0b11000000; port |= 0b10000000; }
+        else if (cycle == 1) { ddr |= 0b11000000; port |= 0b01000000; }
+        else if (cycle == 2) { ddr |= 0b01100000; port |= 0b00100000; }
+        else if (cycle == 3) { ddr |= 0b01100000; port |= 0b01000000; }
+        else if (cycle == 4) { ddr |= 0b10100000; port |= 0b10000000; }
+        else                 { ddr |= 0b10100000; port |= 0b00100000; }
     }
 
     PORTD.OUT = port;
@@ -113,12 +113,12 @@ led_update(void)
          * LED12: PC3 low,  PC2 high, PC1 off  // not mounted
          * off:   PC3 low,  PC2 low,  PC1 low
          */
-        if (cycle == 0)      { ddr |= 0b00001010; port |= 0b00000010; }
-        else if (cycle == 1) { ddr |= 0b00001010; port |= 0b00001000; }
-        else if (cycle == 2) { ddr |= 0b00001100; port |= 0b00000100; }
-        else if (cycle == 3) { ddr |= 0b00001100; port |= 0b00001000; }
-        else if (cycle == 4) { ddr |= 0b00000110; port |= 0b00000010; }
-        //else               { ddr |= 0b00000110; port |= 0b00000100; }
+        if (cycle == 0)      { ddr |= 0b00001010; port |= 0b00001000; }
+        else if (cycle == 1) { ddr |= 0b00001010; port |= 0b00000010; }
+        else if (cycle == 2) { ddr |= 0b00000110; port |= 0b00000100; }
+        else if (cycle == 3) { ddr |= 0b00000110; port |= 0b00000010; }
+        else if (cycle == 4) { ddr |= 0b00001100; port |= 0b00001000; }
+        //else               { ddr |= 0b00001100; port |= 0b00000100; }
     }
 
     PORTC.OUT = port;
