@@ -326,8 +326,11 @@ setup(void)
     /* ADC clock must be between 300 kHz and 2 MHz - use divider 2
        (minimal divider) => 417 kHz ADC clock */
     ADC0.CTRLB = ADC_PRESC_DIV2_gc;
-    /* Sample duration 32 µs */
-    ADC0.CTRLE = (uint16_t)(ceil(32E-6 * (F_CPU / 2))); // => 14 clock cycles
+    /*
+     * Sample duration >=32 µs according to datasheet.
+     * With 64 µs, the result gets pretty stable so use that.
+     */
+    ADC0.CTRLE = (uint16_t)(ceil(64E-6 * (F_CPU / 2)));
     /* Enable result interrupt */
     ADC0.INTCTRL = ADC_RESRDY_bm;
     ADC0.CTRLA = AC_ENABLE_bm;
