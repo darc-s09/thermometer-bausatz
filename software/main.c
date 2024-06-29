@@ -306,6 +306,7 @@ setup(void)
     ADC0.CTRLE = (uint16_t)(ceil(100E-6 * (F_CPU / 2)));
     /* Enable result interrupt */
     ADC0.INTCTRL = ADC_RESRDY_bm;
+    ADC0.CTRLA = AC_ENABLE_bm;
 
     sei();
 
