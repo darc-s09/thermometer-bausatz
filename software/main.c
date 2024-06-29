@@ -313,7 +313,7 @@ setup(void)
     {
         // EEPROM not written yet, use default data
         calib_data.t_offset = 273;
-        calib_data.led_stripe = false;
+        calib_data.led_stripe = true;
         eeprom_write_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
     }
 }
