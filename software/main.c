@@ -345,13 +345,13 @@ setup(void)
     if (calib_data.t_offset == (int)0xFFFF)
     {
         // EEPROM not written yet, use default data
-        calib_data.t_offset = 275;
+        calib_data.t_offset = 273;
         calib_data.led_stripe = false;
         eeprom_write_block(&calib_data, EE_CALIB_LOC, sizeof(calib_data));
     }
 }
 
-static int16_t
+static uint16_t
 calc_temperature(uint16_t adc_reading)
 {
     // this is described in the datasheet
@@ -366,16 +366,14 @@ calc_temperature(uint16_t adc_reading)
     temp += SCALING_FACTOR / 2; // Ensures correct rounding on division below
     temp /= SCALING_FACTOR; // Round to the nearest integer in Kelvin
 
-    int16_t temperature_in_C = temp - 273;
-
-    return temperature_in_C;
+    return temp; // in K
 }
 
 /*
  * Configure LED display according to measured temperature ADC readout.
  */
 static void
-display_temperature(int16_t t)
+display_temperature(uint16_t t)
 {
     int temp = (int)t - calib_data.t_offset;
 
@@ -451,10 +449,10 @@ loop(void)
     {
         // new temperature value available
         adc_result = 0;
-        int tt = calc_temperature(t);
-        display_temperature(tt);
+        uint16_t temp_k = calc_temperature(t);
+        display_temperature(temp_k);
 
-        printf("ADC %u -> %d\n", t, tt);
+        printf("ADC %u -> %u\n", t, temp_k);
     }
 
     if ((PORTD.IN & _BV(4)) == 0)
