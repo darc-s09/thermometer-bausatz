@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <stdio.h>
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -55,6 +56,9 @@ static volatile uint16_t adc_result;
 
 static uint8_t calib_jumpers;
 static uint8_t cycle;
+
+static int uart_tx(char c, FILE *f);
+static FILE mystdout = FDEV_SETUP_STREAM(uart_tx, NULL, _FDEV_SETUP_WRITE);
 
 /*
  * LEDs are operated in "Charliexplexing" mode
@@ -217,6 +221,8 @@ get_calib_jumpers(void)
  */
 ISR(ADC0_RESRDY_vect)
 {
+    ADC0.INTFLAGS = ADC_RESRDY_bm; // clear interrupt flag
+
     adc_result = (uint16_t)ADC0.RESULT;
 }
 
@@ -260,6 +266,29 @@ ISR(TCE0_CMP0_vect)
     led_dim();
 }
 
+static int
+uart_tx(char c, FILE *f)
+{
+    if (c == '\n')
+        uart_tx('\r', f);
+
+    while ((USART0.STATUS & USART_DREIF_bm) == 0) {}
+
+    USART0.TXDATAL = (uint8_t)c;
+
+    return 0;
+}
+
+static void
+uart_setup(uint16_t baud)
+{
+    PORTA.DIRSET = 1; // PA0 -> USART0.TxD
+
+    USART0.BAUD = (4 * F_CPU) / baud;
+    USART0.CTRLB = USART_TXEN_bm;
+}
+
+
 /*
  * Initialize everything.
  */
@@ -301,6 +330,10 @@ setup(void)
     ADC0.CTRLE = (uint16_t)(ceil(32E-6 * (F_CPU / 2))); // => 14 clock cycles
     /* Enable result interrupt */
     ADC0.INTCTRL = ADC_RESRDY_bm;
+    ADC0.CTRLA = AC_ENABLE_bm;
+
+    uart_setup(9600);
+    stdout = &mystdout;
 
     sei();
 
@@ -415,7 +448,10 @@ loop(void)
     {
         // new temperature value available
         adc_result = 0;
-        display_temperature(calc_temperature(t));
+        int tt = calc_temperature(t);
+        display_temperature(tt);
+
+        printf("ADC %u -> %d\n", t, tt);
     }
 
     if ((PORTD.IN & _BV(4)) == 0)
@@ -456,6 +492,8 @@ int
 main(void)
 {
     setup();
+
+    printf("Booted\n");
 
     for (;;)
       loop();
