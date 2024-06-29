@@ -217,6 +217,8 @@ get_calib_jumpers(void)
  */
 ISR(ADC0_RESRDY_vect)
 {
+    ADC0.INTFLAGS = ADC_RESRDY_bm; // clear interrupt flag
+
     adc_result = (uint16_t)ADC0.RESULT;
 }
 
