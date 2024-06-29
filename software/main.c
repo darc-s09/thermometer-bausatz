@@ -328,9 +328,9 @@ setup(void)
     ADC0.CTRLB = ADC_PRESC_DIV2_gc;
     /*
      * Sample duration >=32 µs according to datasheet.
-     * With 64 µs, the result gets pretty stable so use that.
+     * With 100 µs, the result gets pretty stable so use that.
      */
-    ADC0.CTRLE = (uint16_t)(ceil(64E-6 * (F_CPU / 2)));
+    ADC0.CTRLE = (uint16_t)(ceil(100E-6 * (F_CPU / 2)));
     /* Enable result interrupt */
     ADC0.INTCTRL = ADC_RESRDY_bm;
     ADC0.CTRLA = AC_ENABLE_bm;
