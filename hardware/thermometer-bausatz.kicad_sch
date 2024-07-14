@@ -1050,7 +1050,7 @@
     (property "Reference" "U1" (at 73.66 83.82 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "ATTINY24A-SSU" (at 111.76 121.92 0)
+    (property "Value" "AVR16EB14-I/SL" (at 111.76 121.92 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Footprint" "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm" (at 95.25 107.95 0)
