@@ -199,8 +199,8 @@ get_calib_jumpers(void)
 {
     uint8_t val;
 
-    uint8_t portf_in = PORTF.IN;
-    uint8_t porta_in = PORTA.IN;
+    uint8_t portf_in = ~PORTF.IN;
+    uint8_t porta_in = ~PORTA.IN;
 
     val = (portf_in & _BV(7)) >> 7;  // bit 7 -> bit 0
     val |= (porta_in & _BV(1));      // bit 1 -> bit 1
