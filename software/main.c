@@ -277,7 +277,9 @@ setup(void)
     TCE0.PER = F_CPU / F_TIMER;
     TCE0.CMP0 = F_CPU / F_TIMER / DIM_DUTYCYCLE; /* dimmed LED turnoff time */
     TCE0.INTCTRL = TCE_CMP0_bm | TCE_OVF_bm;  /* overflow and compare 0 interrupts */
-    TCE0.CTRLA = TCE_ENABLE_bm;
+    // RUNSTDBY: keep LED multiplexing running while sleeping in Standby
+    // (see ADC errata note below)
+    TCE0.CTRLA = TCE_ENABLE_bm | TCE_RUNSTDBY_bm;
 
     /* PD4: jumper 2 */
     /* PF7: UPDI */
@@ -306,7 +308,21 @@ setup(void)
     ADC0.CTRLE = (uint16_t)(ceil(100E-6 * (F_CPU / 2)));
     /* Enable result interrupt */
     ADC0.INTCTRL = ADC_RESRDY_bm;
-    ADC0.CTRLA = AC_ENABLE_bm;
+    /*
+     * RUNSTDBY: keep the ADC running in Standby sleep mode.  This
+     * works around a silicon errata of the AVR16EB14 (and siblings):
+     * with the internal voltage reference (required for the
+     * temperature sensor channel), the ADC produces missing codes
+     * while the device is in Active or Idle sleep mode.  Standby is
+     * the only sleep mode not affected, so conversions are run from
+     * there instead (see SLPCTRL.CTRLA below).
+     */
+    ADC0.CTRLA = ADC_ENABLE_bm | ADC_RUNSTDBY_bm;
+
+    /* Sleep in Standby (with TCE0/ADC0 kept alive via RUNSTDBY above)
+       instead of the default Idle mode -- required by the ADC errata
+       worked around above. */
+    SLPCTRL.CTRLA = SLPCTRL_SMODE_STDBY_gc | SLPCTRL_SEN_bm;
 
     sei();
 
