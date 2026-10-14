@@ -227,7 +227,7 @@ led_dim(void)
 /*
  * Read the calibration jumpers
  *
- * bit 0 -> PF7: UP
+ * bit 0 -> PF6: UP
  * bit 1 -> PA1: DOWN
  * bit 2 -> PA0: MODE
  */
@@ -239,7 +239,7 @@ get_calib_jumpers(void)
     uint8_t portf_in = ~PORTF.IN;
     uint8_t porta_in = ~PORTA.IN;
 
-    val = (portf_in & _BV(7)) >> 7;  // bit 7 -> bit 0
+    val = (portf_in & _BV(6)) >> 6;  // bit 6 -> bit 0
     val |= (porta_in & _BV(1));      // bit 1 -> bit 1
     val |= (porta_in & _BV(0)) << 2; // bit 0 -> bit 2
 
@@ -299,7 +299,7 @@ ISR(TCE0_CMP0_vect)
     if (++t == F_TIMER / 2)
     {
         // Each half second, trigger one temperature measurement, and
-        // read the calibration jumper state from PF7, PA1, and PA0.
+        // read the calibration jumper state from PF6, PA1, and PA0.
         t = 0;
         start_adc();
         calib_jumpers = get_calib_jumpers();
@@ -327,12 +327,12 @@ setup(void)
     TCE0.CTRLA = TCE_ENABLE_bm | TCE_RUNSTDBY_bm;
 
     /* PD4: jumper 2 */
-    /* PF7: UPDI */
-    /* PA0/1: spare/adjust */
+    /* PF6: adjust (RESET pin, configured as GPIO by default fuse) */
+    /* PA0/1: adjust */
     /* PC0: jumper 1 */
     /* Enable pullups for all these pins */
     PORTD.PIN4CTRL = PORT_PULLUPEN_bm;
-    PORTF.PIN7CTRL = PORT_PULLUPEN_bm;
+    PORTF.PIN6CTRL = PORT_PULLUPEN_bm;
     PORTA.PIN0CTRL = PORT_PULLUPEN_bm;
     PORTA.PIN1CTRL = PORT_PULLUPEN_bm;
     PORTC.PIN0CTRL = PORT_PULLUPEN_bm;

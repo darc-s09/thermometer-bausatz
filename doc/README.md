@@ -50,7 +50,7 @@ Verschiebung der oben genannten Skalenbereiche realisierbar.
 
 Zum Justieren benötigt man eine Pinzette o.ä., mit der sich immer zwei
 Anschlüsse von J3 kurzzeitig verbinden lassen. Verbindet man dabei
-Pins 1 und 6 (links unten und rechts oben), dann erhöht sich die
+Pins 5 und 6 (rechts unten und rechts oben), dann erhöht sich die
 angezeigte Temperatur. Verbindet man Pin 3 und 6 (unten Mitte und
 rechts oben), verringert sie sich. Schließlich kann man durch
 Verbinden von Pin 4 und 6 (oben Mitte und rechts oben) zwischen Band-
@@ -69,7 +69,8 @@ Batteriewechsel erhalten bleiben.
 ### Übersicht
 
 Zentrales Element der Schaltung ist ein so genannter Mikrocontroller
-(U1 im Schaltplan, nachfolgend „Controller“ genannt). Dabei handelt es
+vom Typ AVR16EB14 (U1 im Schaltplan, nachfolgend „Controller“
+genannt). Dabei handelt es
 sich um einen kleinen Computer, der außer der CPU den kompletten
 Programm- und Arbeitsspeicher auf dem Chip enthält sowie verschiedene
 Peripheriegeräte, über die er mit seiner Umwelt kommunizieren
@@ -80,20 +81,21 @@ Stromimpulse, die er im Betrieb aufnimmt.
 
 Wesentliche vom Controller anzusteuernde Elemente sind die
 Leuchtdioden (LEDs) D1 bis D11. Sie benutzen insgesamt 6 der
-verfügbaren 11 Anschlüsse (Portpins). Von den verbleibenden 5
-Anschlüssen werden drei für die Programmierschnittstelle J3
-verwendet. Wenn das Programm läuft, kann man über diese drei
-Anschlüsse außerdem die Justage der Temperaturanzeige sowie die
-Umschaltung zwischen Punkt- und Bandbetrieb der LEDs vornehmen. Die
-letzten beiden verbleibenden Portpins schließlich werden für die
-Abfrage der beiden Steckbrücken (so genannte „Jumper“, JP1 und JP2)
-benutzt.
+verfügbaren 12 Anschlüsse (Portpins). Einer der verbleibenden 6
+Anschlüsse, PF7, ist der Programmieranschluss (UPDI) und auf den
+Steckverbinder J3 geführt. Drei weitere (PF6, PA1 und PA0) liegen
+ebenfalls an J3. Wenn das Programm läuft, kann man über diese drei
+Anschlüsse die Justage der Temperaturanzeige sowie die Umschaltung
+zwischen Punkt- und Bandbetrieb der LEDs vornehmen. PF6 ist dabei
+eigentlich der Reset-Anschluss des Controllers; diese Funktion ist
+aber ab Werk abgeschaltet, sodass er als normaler Portpin zur
+Verfügung steht. Die letzten beiden verbleibenden Portpins schließlich
+(PC0 und PD4) werden für die Abfrage der beiden Steckbrücken (so
+genannte „Jumper“, JP1 und JP2) benutzt.
 
-Der Schaltungsteil links oben (U2, C2, R1) ist optional. Damit ließe
-sich ein externer Temperaturfühler anschließen. Für den Bausatz wurde
-vorerst vor allem aus Kostengründen auf diese Variante verzichtet, da
-der im Controller enthaltene interne Sensor sich (nach Justage) als
-ausreichend für diese kleine Thermometer-Schaltung erwiesen hat.
+Einen externen Temperaturfühler gibt es nicht: der im Controller
+enthaltene interne Sensor hat sich (nach Justage) als ausreichend für
+diese kleine Thermometer-Schaltung erwiesen.
 
 ### Anschluss der LEDs
 
@@ -160,7 +162,10 @@ der bei entsprechender Aktivierung eine temperaturabhängige Spannung
 entsteht. Diese wird mit einem so genannten ADC (Analog-Digital
 Converter) in einen Computer-Zahlenwert umgewandelt und von da
 entsprechend einer vom Hersteller angegebenen Formel
-umgerechnet. Dabei ist infolge von Fertigungstoleranzen der Wert
+umgerechnet. Der Hersteller misst dazu jeden Controller bereits in
+der Fertigung aus und legt zwei Korrekturwerte (Steigung und
+Nullpunkt) in einem nur lesbaren Speicherbereich ab, der so genannten
+Signaturzeile. Trotzdem ist infolge von Fertigungstoleranzen der Wert
 dieser Spannung für eine bestimmte Temperatur (bspw. 20 °C) für ein
 bestimmtes Controller-Exemplar nicht sehr exakt vorhersagbar, sodass
 wir eine Möglichkeit zur Justage des fertigen Geräts benötigen. Die
@@ -173,27 +178,34 @@ bereits ausreichend ist.
 ### Programmierschnittstelle
 
 Als Programmierschnittstelle fungiert der 6polige Steckverbinder J3,
-der sich unten in der Mitte der Platine befindet. Es handelt sich
-dabei um eine so genannte ISP-Schnittstelle (In-System Programming),
-d.h. der Controller muss zum Einbringen eines neuen Programms
-(„Flashen“ genannt, da es im Controller in Flash-Speicherzellen
-hinterlegt wird) nicht aus der Schaltung entnommen werden. Die für die
-Programmierung benutzten Portpins lassen sich außerhalb des
-Programmierbetriebs wie reguläre Portpins benutzen, weshalb wir sie
-für die Justagemöglichkeit verwenden. Für die Programmierung selbst
-benötigt man einen entsprechenden Programmieradapter, der die auf dem
-PC vorliegende Firmware (also das Programm) dann über die
-ISP-Schnittstelle in den Flash-Speicher des Controllers überträgt.
+der sich unten in der Mitte der Platine befindet. Der Controller wird
+über die so genannte UPDI-Schnittstelle (Unified Program and Debug
+Interface) programmiert, die mit nur einer einzigen Signalleitung
+auskommt: Pin 1 von J3 (PF7), dazu die Betriebsspannung an Pin 2 und
+Masse an Pin 6. Der Controller muss zum Einbringen eines neuen
+Programms („Flashen“ genannt, da es im Controller in
+Flash-Speicherzellen hinterlegt wird) nicht aus der Schaltung
+entnommen werden. Für die Programmierung selbst benötigt man einen
+entsprechenden Programmieradapter, der die auf dem PC vorliegende
+Firmware (also das Programm) dann über die UPDI-Schnittstelle in den
+Flash-Speicher des Controllers überträgt.
+
+Die übrigen Pins von J3 dienen nicht der Programmierung: Pin 3 (PA1),
+Pin 4 (PA0) und Pin 5 (PF6) sind normale Portpins, die für die Justage
+benutzt werden. Der UPDI-Anschluss selbst lässt sich dafür nicht
+verwenden, da er im UPDI-Betrieb nicht als normaler Eingang abgefragt
+werden kann. Ihn als normalen Portpin umzukonfigurieren, würde
+wiederum eine spätere Programmierung erheblich erschweren (nur noch
+mit einem Hochspannungsimpuls am Reset-Anschluss möglich).
 
 ### Steckbrücken
 
 Die „Jumper“ genannten Steckbrücken JP1 und JP2 werden benutzt, um im
 Programm des Controllers Abläufe zu ändern. Zu diesem Zweck wird im
-Controller ein kleiner Vorwiderstand von der positiven
+Controller ein interner Widerstand („Pull-up“) von der positiven
 Betriebsspannung angeschaltet. Ein gesteckter Jumper schließt dann
 diese Spannung nach Masse (negative Betriebsspannung) kurz, und die
 Software kann beim Abfragen des Pins diese Tatsache feststellen.
-Beschreibung der Software
 
 ## Beschreibung der Software
 
@@ -209,11 +221,11 @@ in Assemblersprache. Aus diesem Grund ist diese Programmiersprache
 mittlerweile für die Programmierung von Mikrocontrollern ebenfalls
 sehr verbreitet, denn auch dort kommt es vor allem auf hardwarenahe
 Programmierung an. Zum Anderen bietet sie einiges an Komfort bis hin
-zur Formulierung mathematischer Ausdrücke mittels so genannter
-Gleitkommazahlen, bei denen mit guter Genauigkeit von sehr kleinen bis
-zu sehr großen Zahlen gerechnet werden kann. Dies wird im vorliegenden
-Fall für die Umrechnung der Spannungswerte des Temperatursensors in
-Temperaturwerte benutzt.
+zur Formulierung mathematischer Ausdrücke. Die Umrechnung der
+Spannungswerte des Temperatursensors in Temperaturwerte kommt dabei
+mit ganzen Zahlen (integer) aus, was auf einem kleinen Controller
+deutlich weniger Programmspeicher und Rechenzeit benötigt als die
+Rechnung mit Gleitkommazahlen.
 
 Aus dem in C geschriebenen Quellprogramm (Sourcecode) fertigt eine
 Werkzeugkette (Toolchain) anschließend ein maschinenlesbares Programm
@@ -224,9 +236,11 @@ genutzt in der Variante für die AVR-Mikrocontroller der Firma
 Microchip (vormals Atmel). Ergänzt werden sie dabei durch die
 Programmbibliothek avr-libc, die für diese Controller-Famile viel
 Unterstützung für den Zugriff auf die Hardware bietet. Zum Übertragen
-der Firmware über die ISP-Schnittstelle wird schließlich zusammen mit
+der Firmware über die UPDI-Schnittstelle wird schließlich zusammen mit
 einem entsprechenden Adapter (Programmiergerät) die Software AVRDude
-benutzt.
+benutzt. Das Makefile ist für einen Atmel-ICE eingerichtet
+(`atmelice_updi`); AVRDude unterstützt aber auch einfache
+USB-Seriell-Wandler als UPDI-Adapter (`serialupdi`).
 
 ### Programmstruktur
 
@@ -242,69 +256,91 @@ innerhalb der sich die eigentliche Funktion der Firmware befindet
 ### `setup()`
 
 Wesentliche Aufgabe dieser Funktion ist es, die Peripherie-Baugruppen
-des Controllers in der gewünschten Weise einzurichten. Die vorliegende
-Firmware benutzt vor allem drei Peripherieblöcke des Controllers:
-einen Zeitgeber (TIMER1) zur zeitlichen Steuerung aller Abläufe, den
-AD-Wandler (ADC) für das Einlesen des internen Temperatursensors sowie
-die Portpins (PORT) zum Ansteuern der LEDs und Einlesen von Eingängen
-(Jumper, Justierfunktion). Weiterhin wird der im Controller enthaltene
-EEPROM genutzt, um die Justierdaten zu hinterlegen. Deren aktueller
-Zustand wird daher beim Start des Programms eingelesen und im
-Arbeitsspeicher abgelegt.
+des Controllers in der gewünschten Weise einzurichten. Zuerst wird
+dabei der Systemtakt festgelegt: der interne 20-MHz-Oszillator wird
+durch 24 geteilt, sodass der Controller mit rund 833 kHz arbeitet. Das
+genügt für die einfachen Aufgaben vollauf und spart Energie. Die
+vorliegende Firmware benutzt dann vor allem drei Peripherieblöcke des
+Controllers: einen Zeitgeber (TCE0) zur zeitlichen Steuerung aller
+Abläufe, den AD-Wandler (ADC0) für das Einlesen des internen
+Temperatursensors sowie die Portpins (PORT) zum Ansteuern der LEDs und
+Einlesen von Eingängen (Jumper, Justierfunktion). Weiterhin wird der
+im Controller enthaltene EEPROM genutzt, um die Justierdaten zu
+hinterlegen. Deren aktueller Zustand wird daher beim Start des
+Programms eingelesen und im Arbeitsspeicher abgelegt. Ist der EEPROM
+noch leer (fabrikneuer Controller), werden Standardwerte eingetragen.
 
-### `TIMER1`
+### `TCE0`
 
-Der Zeitgeber TIMER1 wird so programmiert, dass er mit 600 Hz
+Der Zeitgeber TCE0 wird so programmiert, dass er mit 600 Hz
 Umlauffrequenz arbeitet. Da jede LED jeder Gruppe 1/6 der Zeit
 eingeschaltet ist, ergibt sich damit eine Wiederholfrequenz von 100 Hz
 für die LEDs, was deutlich oberhalb der Flimmergrenze des menschlichen
-Auges (ca. 30 Hz) ist. Zusätzlich löst der Durchlauf des Timers durch
-1/20 seines Endwerts ein weiteres Ereignis (TIM1_COMPB_vect)aus,
-welches dazu benutzt wird, dass die abgedunkelt dargestellten LEDs
-wieder ausgeschaltet werden. Beim Erreichen des Endwerts
-(TIM1_COMPA_vect) erfolgt ein Weiterschalten der LEDs innerhalb der
-jeweiligen Gruppe. Für jeden Zeitschlitz wird dabei festgestellt, ob
-die zugehörigen Portpins auf Ausgang/high, Ausgang/low oder hochohmig
-(Eingang) geschaltet werden müssen. Diese Entscheidung erfolgt in der
-Funktion led_update(). Die Funktion led_dim() entscheidet beim
-Durchlauf des Timers durch 1/20 des Endwerts darüber, ob sich die
-aktuelle LED in einem abgedunkelten Zustand („dim“) befindet und daher
-vorzeitig abzuschalten ist.
+Auges (ca. 30 Hz) ist. Jeder Umlauf bildet einen Zeitschlitz, in dem
+aus jeder der beiden LED-Gruppen genau eine LED angesteuert wird.
 
-Nach dem Weiterschalten des LED-Charlieplexings wird noch eine interne
-Variable weitergezählt. Erreicht sie den halben Wert der Frequenz des
-Zeitgebers (was nach 0,5 s der Fall ist), dann wird einerseits eine
-neue Temperaturmessung im AD-Wandler gestartet, andererseits werden
-die Werte der Justier-Anschlüsse eingelesen und intern in der
-Variablen calib_jumpers hinterlegt. Daraus ergibt sich, dass die
-Justierfunktion jeweils maximal ein Ereignis pro 0,5 s verarbeiten
-kann.
+Beim Erreichen des Endwerts (Interrupt TCE0_OVF_vect) beginnt ein neuer
+Zeitschlitz. Die Funktion led_output() schreibt dann lediglich die
+bereits im vorherigen Zeitschlitz vorausberechneten Werte in die
+Portpins, damit die LEDs immer zu einem genau definierten Zeitpunkt
+eingeschaltet werden.
 
-### `ADC`
+Beim Durchlauf des Timers durch 1/20 seines Endwerts wird ein weiteres
+Ereignis (TCE0_CMP0_vect) ausgelöst. Zuerst schaltet dabei die
+Funktion led_dim() diejenigen LEDs wieder aus, die abgedunkelt („dim“)
+dargestellt werden sollen; sie leuchten also nur etwa 1/20 der Zeit
+einer normal eingeschalteten LED. Danach ermittelt die Funktion
+led_prepare() für den nächsten Zeitschlitz, ob die zugehörigen
+Portpins auf Ausgang/high, Ausgang/low oder hochohmig (Eingang)
+geschaltet werden müssen und ob die jeweilige LED abgedunkelt werden
+soll. Diese Aufteilung ist notwendig, weil der Controller während der
+Bearbeitung eines Interrupts keinen weiteren annimmt: würde die
+gesamte Rechnung bereits beim Erreichen des Endwerts erfolgen, so käme
+das Abschalten der abgedunkelten LEDs zu spät, und deren Helligkeit
+hinge davon ab, wie lange diese Rechnung gerade dauert.
 
-Der AD-Wandler ist dauerhaft voreingestellt auf Kanal 8, welcher mit
-dem internen Temperatursensor verbunden ist. Nach dem Start durch den
-Zeitgeber benötigt er eine kurze Zeit (knapp 2 ms), um sein Ergebnis
-zu ermitteln. Dieses wird in der Interrupt Service Routine (ISR)
-ADC_vect() in einer globalen Variablen adc_result hinterlegt, von wo
-es später abgeholt wird, um die tatsächliche Temperatur zu
-ermitteln. Dieser Wert ist erst einmal nur ein Zahlenwert, der die
-gemessene Spannung relativ zu einer Referenzspannung in Höhe von 1,1 V
-auf 1024 Schritte aufteilt; der Wert 0 entspricht also 0 V, der Wert
-1023 entspricht 1,1 V.
+Anschließend wird noch eine interne Variable weitergezählt. Erreicht
+sie den halben Wert der Frequenz des Zeitgebers (was nach 0,5 s der
+Fall ist), dann wird einerseits eine neue Temperaturmessung im
+AD-Wandler gestartet, andererseits werden die Werte der
+Justier-Anschlüsse eingelesen und intern in der Variablen
+calib_jumpers hinterlegt. Daraus ergibt sich, dass die Justierfunktion
+jeweils maximal ein Ereignis pro 0,5 s verarbeiten kann.
 
-### `display_temperature()`
+### `ADC0`
 
-In dieser Funktion erfolgt die Umwandlung des gemessenen
-Spannungswertes vom Temperatusensor in die LED-Anzeige. Zuerst wird
-dabei die Temperatur gemäß der Formel aus dem Datenblatt ermittelt
-unter Berücksichtigung des Justierwertes (calib_data.t_offset). Danach
-wird in Abhängigkeit davon, ob JP1 gesetzt oder gezogen ist,
-ermittelt, welche LEDs wie zu aktivieren sind. Zuerst werden dabei
-alle LEDs auf „OFF“ gesetzt, danach werden die LED-Muster für die
-Temperaturanzeige in den Vektor leds[] eingetragen, aus dem dann der
-Algorithmus fürs Charlieplexing die jeweiligen Aktivitäten an den
-Portpins zyklisch ermittelt.
+Der AD-Wandler ist dauerhaft auf den Eingang eingestellt, der mit dem
+internen Temperatursensor verbunden ist. Nach dem Start durch den
+Zeitgeber benötigt er eine kurze Zeit (etwa 0,15 ms), um sein Ergebnis
+zu ermitteln; den größten Teil davon nimmt die Abtastzeit von 100 µs
+ein, mit der sich besonders stabile Messwerte ergeben. Das Ergebnis
+wird in der Interrupt Service Routine (ISR) ADC0_RESRDY_vect() in einer
+globalen Variablen adc_result hinterlegt, von wo es später abgeholt
+wird, um die tatsächliche Temperatur zu ermitteln. Dieser Wert ist
+erst einmal nur ein Zahlenwert, der die gemessene Spannung relativ zu
+einer internen Referenzspannung in Höhe von 1,024 V auf 4096 Schritte
+aufteilt (12 Bit Auflösung); der Wert 0 entspricht also 0 V, der Wert
+4095 entspricht knapp 1,024 V.
+
+### `calc_temperature()` und `display_temperature()`
+
+Die Funktion calc_temperature() rechnet den Messwert des AD-Wandlers
+gemäß der Formel aus dem Datenblatt in eine Temperatur um. Dazu werden
+die beiden Korrekturwerte aus der Signaturzeile des Controllers
+benutzt (TEMPSENSE0 als Steigung, TEMPSENSE1 als Nullpunkt). Das
+Ergebnis ist die Temperatur in Kelvin, gerundet auf ganze Grad.
+
+In der Funktion display_temperature() erfolgt dann die Umwandlung
+dieser Temperatur in die LED-Anzeige. Zuerst wird dabei der
+Justierwert (calib_data.t_offset) abgezogen. Er beträgt im
+Ausgangszustand 273, rechnet also einfach von Kelvin in Grad Celsius
+um; durch die Justage wird er um die individuelle Abweichung des
+jeweiligen Controllers verändert. Danach wird in Abhängigkeit davon,
+ob JP1 gesetzt oder gezogen ist, ermittelt, welche LEDs wie zu
+aktivieren sind. Zuerst werden dabei alle LEDs auf „OFF“ gesetzt,
+danach werden die LED-Muster für die Temperaturanzeige in den Vektor
+leds[] eingetragen, aus dem dann der Algorithmus fürs Charlieplexing
+die jeweiligen Aktivitäten an den Portpins zyklisch ermittelt.
 
 ### Justierfunktion
 
@@ -314,15 +350,26 @@ bei diesem erkannt, dass ein bislang gesteckter Jumper
 (Justierfunktion, Variable opmode im Programm hatte den Wert
 CALIBRATION) nun gezogen worden ist, so werden die aktuellen
 Justierdaten in den EEPROM zurückgeschrieben, damit sie bei einem
-Neustart des Programms von da eingelesen werden können. Falls sich das
-Programm im Justiermodus befindet, werden mit jedem
-Halbsekundenschritt hier die entsprechenden Werte für
+Neustart des Programms von da eingelesen werden können. Danach wird
+der zuletzt eingelesene Zustand der Justier-Anschlüsse aus
+calib_jumpers abgeholt und die Variable gleichzeitig gelöscht. Dies
+geschieht unter kurzzeitiger Sperre der Interrupts, damit nicht genau
+dazwischen ein neuer Wert eingetragen und dann versehentlich gelöscht
+werden kann. Falls sich das Programm im Justiermodus befindet, werden
+mit jedem Halbsekundenschritt hier die entsprechenden Werte für
 Band-/Punktbetrieb und Temperatur-Offset nachgeführt.
 
 Nachdem die Funktion loop() dies erledigt hat, versetzt sie die CPU in
-den Schlafzustand, um Energie sparen zu können. Die Peripheriegeräte
-arbeiten in diesem Zustand entsprechend ihrer Programmierung
-uneingeschränkt weiter und bestimmen damit den weiteren Ablauf.
+den Schlafzustand, um Energie sparen zu können. Benutzt wird dabei der
+Modus „Standby“, in dem nur noch diejenigen Peripheriegeräte
+weiterarbeiten, für die dies ausdrücklich eingestellt worden ist
+(hier der Zeitgeber TCE0 und der AD-Wandler). Laut Kommentar im
+Quelltext umgeht dies einen Fehler des Controllers (Erratum), durch
+den der AD-Wandler mit der internen Referenzspannung im aktiven
+Zustand und im Modus „Idle“ fehlerhafte Messwerte liefert. Die
+Peripheriegeräte bestimmen in diesem Zustand entsprechend ihrer
+Programmierung den weiteren Ablauf: jeder ihrer Interrupts weckt die
+CPU kurz auf, danach wird loop() erneut durchlaufen.
 
 ### Update 2022-06-17
 
@@ -341,3 +388,25 @@ recht groben Auflösung der 11 LEDs in der Anzeige kaum ins Gewicht
 fällt, wurde er einfach weggelassen. Damit kann die komplette Rechnung
 mit ganzen Zahlen (integer) erfolgen, und der Code passt nunmehr
 bequem in den Flash des ATtiny24A hinein.
+
+### Umstellung auf AVR16EB14
+
+Inzwischen wurde der Bausatz vom ATtiny24A/44A auf den AVR16EB14
+umgestellt, einen Vertreter der neueren AVR-Generation. Die
+wesentlichen Unterschiede:
+
+* Programmiert wird über die einpolige UPDI-Schnittstelle statt über
+  die frühere ISP-Schnittstelle. Der Steckverbinder J3 ist deshalb
+  anders belegt. Die Bedienung der Justage hat sich dadurch leicht
+  geändert: zum Erhöhen der Temperatur werden jetzt Pin 5 und 6
+  verbunden statt früher Pin 1 und 6, die Pins 3 und 4 haben ihre
+  Funktion behalten.
+* Der Zeitgeber TCE0 ersetzt TIMER1, der AD-Wandler arbeitet mit 12
+  statt 10 Bit und mit einer Referenzspannung von 1,024 statt 1,1 V.
+* Jeder Controller enthält ab Werk Korrekturwerte für den
+  Temperatursensor, die bei der Umrechnung benutzt werden. Die oben
+  beschriebene Vereinfachung der Rechnung für den ATtiny24A ist
+  dadurch hinfällig; gerechnet wird aber weiterhin nur mit ganzen
+  Zahlen.
+* Mit 16 KiB Flash ist reichlich Platz: die Firmware belegt derzeit
+  knapp 2 KiB.
