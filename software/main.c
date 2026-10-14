@@ -18,6 +18,8 @@
 #include <avr/power.h>
 #include <avr/eeprom.h>
 
+#include <util/atomic.h>
+
 #define NLEDS 6           // per group
 #define DIM_DUTYCYCLE  20 // duty cycle for dimmed LEDs
 
@@ -25,9 +27,15 @@
 
 #define EE_CALIB_LOC ((void *)16) // avoid using cell #0
 
-#define CALIB_OFFSET_UP()     (calib_jumpers & 1)
-#define CALIB_OFFSET_DOWN()   (calib_jumpers & 2)
-#define CALIB_TOGGLE_STRIPE() (calib_jumpers & 4)
+#define CALIB_OFFSET_UP(j)     ((j) & 1)
+#define CALIB_OFFSET_DOWN(j)   ((j) & 2)
+#define CALIB_TOGGLE_STRIPE(j) ((j) & 4)
+
+#define LEDS_D 0b11100000 // LED group 1: PD7, PD6, PD5
+#define LEDS_C 0b00001110 // LED group 2: PC3, PC2, PC1
+
+#define DIM_D  1 // LED of group 1 in current slot is dimmed
+#define DIM_C  2 // LED of group 2 in current slot is dimmed
 
 enum ledstatus
 {
@@ -53,8 +61,22 @@ struct eeprom_data calib_data;
 static volatile uint32_t ticks;
 static volatile uint16_t adc_result;
 
-static uint8_t calib_jumpers;
+static volatile uint8_t calib_jumpers;
 static uint8_t cycle;
+
+/*
+ * Port configuration for the next charlieplexing slot, precomputed
+ * so the timer overflow ISR can apply it without delay.
+ */
+struct led_slot
+{
+    uint8_t d_out, d_dir; // LED bits of PORTD
+    uint8_t c_out, c_dir; // LED bits of PORTC
+    uint8_t dim;          // DIM_D | DIM_C
+};
+
+static struct led_slot next_slot;
+static uint8_t cur_dim; // dim flags of the slot currently displayed
 
 /*
  * LEDs are operated in "Charliexplexing" mode
@@ -74,8 +96,9 @@ static uint8_t cycle;
  * LED.
  */
 static void
-led_update(void)
+led_prepare(void)
 {
+    struct led_slot s = { 0, 0, 0, 0, 0 };
 
     if (++cycle == NLEDS)
     {
@@ -83,15 +106,12 @@ led_update(void)
     }
 
     // LEDs are on PD7, PD6, PD5
-    uint8_t port = PORTD.OUT & ~0b11100000; // preserve all non-LED bits,
-    uint8_t ddr  = PORTD.DIR & ~0b11100000; // but mask LED bits to 0
-
     if (leds[cycle] == OFF ||
         ((leds[cycle] == DIM_FLASH || leds[cycle] == FLASH) && (ticks & 1) == 0))
     {
         // Current LED must be turned off
         // output low, all off
-        ddr |= 0b11100000; // output low, all off
+        s.d_dir = LEDS_D;
     }
     else // this LED needs to be turned on during this cycle
     {
@@ -107,27 +127,24 @@ led_update(void)
          * off:  PD7 low,  PD6 low,  PD5 low
          */
 
-        if (cycle == 0)      { ddr |= 0b11000000; port |= 0b10000000; }
-        else if (cycle == 1) { ddr |= 0b11000000; port |= 0b01000000; }
-        else if (cycle == 2) { ddr |= 0b01100000; port |= 0b00100000; }
-        else if (cycle == 3) { ddr |= 0b01100000; port |= 0b01000000; }
-        else if (cycle == 4) { ddr |= 0b10100000; port |= 0b10000000; }
-        else                 { ddr |= 0b10100000; port |= 0b00100000; }
+        if (cycle == 0)      { s.d_dir = 0b11000000; s.d_out = 0b10000000; }
+        else if (cycle == 1) { s.d_dir = 0b11000000; s.d_out = 0b01000000; }
+        else if (cycle == 2) { s.d_dir = 0b01100000; s.d_out = 0b00100000; }
+        else if (cycle == 3) { s.d_dir = 0b01100000; s.d_out = 0b01000000; }
+        else if (cycle == 4) { s.d_dir = 0b10100000; s.d_out = 0b10000000; }
+        else                 { s.d_dir = 0b10100000; s.d_out = 0b00100000; }
+
+        if (leds[cycle] == DIM || leds[cycle] == DIM_FLASH)
+            s.dim |= DIM_D;
     }
 
-    PORTD.OUT = port;
-    PORTD.DIR = ddr;
-
     // LEDs are on PC3, PC2, PC1
-    port = PORTC.OUT & ~0b00001110;
-    ddr  = PORTC.DIR & ~0b00001110;
-
     if (leds[cycle + NLEDS] == OFF ||
         ((leds[cycle + NLEDS] == DIM_FLASH || leds[cycle + NLEDS] == FLASH) && (ticks & 1) == 0))
     {
         // Current LED must be turned off
         // output low, all off
-        ddr |= 0b00001110; // output low, all off
+        s.c_dir = LEDS_C;
     }
     else
     {
@@ -142,16 +159,36 @@ led_update(void)
          * LED12: PC3 low,  PC2 high, PC1 off  // not mounted
          * off:   PC3 low,  PC2 low,  PC1 low
          */
-        if (cycle == 0)      { ddr |= 0b00001010; port |= 0b00001000; }
-        else if (cycle == 1) { ddr |= 0b00001010; port |= 0b00000010; }
-        else if (cycle == 2) { ddr |= 0b00000110; port |= 0b00000100; }
-        else if (cycle == 3) { ddr |= 0b00000110; port |= 0b00000010; }
-        else if (cycle == 4) { ddr |= 0b00001100; port |= 0b00001000; }
-        //else               { ddr |= 0b00001100; port |= 0b00000100; }
+        if (cycle == 0)      { s.c_dir = 0b00001010; s.c_out = 0b00001000; }
+        else if (cycle == 1) { s.c_dir = 0b00001010; s.c_out = 0b00000010; }
+        else if (cycle == 2) { s.c_dir = 0b00000110; s.c_out = 0b00000100; }
+        else if (cycle == 3) { s.c_dir = 0b00000110; s.c_out = 0b00000010; }
+        else if (cycle == 4) { s.c_dir = 0b00001100; s.c_out = 0b00001000; }
+        //else               { s.c_dir = 0b00001100; s.c_out = 0b00000100; }
+
+        if (leds[cycle + NLEDS] == DIM || leds[cycle + NLEDS] == DIM_FLASH)
+            s.dim |= DIM_C;
     }
 
-    PORTC.OUT = port;
-    PORTC.DIR = ddr;
+    next_slot = s;
+}
+
+/*
+ * Apply the precomputed LED configuration for the new slot.
+ *
+ * Called first thing in the timer overflow ISR, so the LEDs turn on
+ * at a well-defined time, well ahead of the dimming compare match.
+ */
+static void
+led_output(void)
+{
+    PORTD.OUT = (PORTD.OUT & ~LEDS_D) | next_slot.d_out;
+    PORTD.DIR = (PORTD.DIR & ~LEDS_D) | next_slot.d_dir;
+
+    PORTC.OUT = (PORTC.OUT & ~LEDS_C) | next_slot.c_out;
+    PORTC.DIR = (PORTC.DIR & ~LEDS_C) | next_slot.c_dir;
+
+    cur_dim = next_slot.dim;
 }
 
 /*
@@ -173,17 +210,17 @@ static void
 led_dim(void)
 {
     // LEDs are on PD7, PD6, PD5
-    if (leds[cycle] == DIM || leds[cycle] == DIM_FLASH)
+    if (cur_dim & DIM_D)
     {
-        PORTD.OUT &= ~0b11100000; // output low
-        PORTD.DIR |=  0b11100000;
+        PORTD.OUT &= ~LEDS_D; // output low
+        PORTD.DIR |=  LEDS_D;
     }
 
     // LEDs are on PC3, PC2, PC1
-    if (leds[cycle + NLEDS] == DIM || leds[cycle + NLEDS] == DIM_FLASH)
+    if (cur_dim & DIM_C)
     {
-        PORTC.OUT &= ~0b00001110; // output low
-        PORTC.DIR |=  0b00001110;
+        PORTC.OUT &= ~LEDS_C; // output low
+        PORTC.DIR |=  LEDS_C;
     }
 }
 
@@ -227,39 +264,47 @@ ISR(ADC0_RESRDY_vect)
  * reaches its final value (where it will automatically restart from
  * 0).
  *
- * This is the basic heartbeat software clock of the system, ticking
- * with a frequency of F_TIMER.
+ * This starts a new charlieplexing slot.  It only applies the
+ * precomputed port configuration, so it finishes well before the
+ * compare match 0 interrupt below is due; AVR interrupts do not
+ * nest, so any longer processing here would delay turning off the
+ * dimmed LEDs.
  */
 ISR(TCE0_OVF_vect)
 {
-    static int t;
-
     TCE0.INTFLAGS = TCE_OVF_bm; // clear interrupt flag
 
-    // At each tick of the heartbeat timer, update the LED
-    // charlieplexing (i.e. configure next LED within its group).
-    led_update();
-
-    if (++t == F_TIMER / 2)
-    {
-        // Each half second, trigger one temperature measurement, and
-        // read the calibration jumper state from PA4 through PA6.
-        t = 0;
-        start_adc();
-        calib_jumpers = get_calib_jumpers();
-        ticks++;
-    }
+    led_output();
 }
 
 /*
  * Timer/counter E0 compare/match 0 interrupt is triggered early in the counter
  * cycle, and used to turn off dimmed LEDs quickly.
+ *
+ * Afterwards, it does all the remaining work of the basic heartbeat
+ * software clock of the system, ticking with a frequency of F_TIMER.
  */
 ISR(TCE0_CMP0_vect)
 {
+    static int t;
+
     TCE0.INTFLAGS = TCE_CMP0_bm; // clear interrupt flag
 
     led_dim();
+
+    // Precompute the LED charlieplexing for the next slot (i.e.
+    // configure next LED within its group).
+    led_prepare();
+
+    if (++t == F_TIMER / 2)
+    {
+        // Each half second, trigger one temperature measurement, and
+        // read the calibration jumper state from PF7, PA1, and PA0.
+        t = 0;
+        start_adc();
+        calib_jumpers = get_calib_jumpers();
+        ticks++;
+    }
 }
 
 /*
@@ -458,16 +503,26 @@ loop(void)
         opmode = NORMAL;
     }
 
+    // Fetch and consume the latest calibration jumper state.  Done
+    // atomically so a concurrent update from the ISR cannot be lost,
+    // and unconditionally so no stale state is left over when
+    // entering calibration mode.
+    uint8_t jumpers;
+    ATOMIC_BLOCK(ATOMIC_FORCEON)
+    {
+        jumpers = calib_jumpers;
+        calib_jumpers = 0;
+    }
+
     // When in calibration mode, handle the individual jumpers
     if (opmode == CALIBRATION)
     {
-        if (CALIB_TOGGLE_STRIPE())
+        if (CALIB_TOGGLE_STRIPE(jumpers))
             calib_data.led_stripe = !calib_data.led_stripe;
-        else if (CALIB_OFFSET_UP())
+        else if (CALIB_OFFSET_UP(jumpers))
             calib_data.t_offset++;
-        else if (CALIB_OFFSET_DOWN())
+        else if (CALIB_OFFSET_DOWN(jumpers))
             calib_data.t_offset--;
-        calib_jumpers = 0;
     }
 
     sleep_mode();
