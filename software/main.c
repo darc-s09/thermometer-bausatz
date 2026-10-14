@@ -385,10 +385,12 @@ display_temperature(uint16_t t)
                 // dim LEDs below actual value when in "stripe" mode
                 memset(leds, DIM, (temp - 12) / 2);
             // turn on LED for actual value
+            // even values are full scale steps (steady), odd ones
+            // are half steps (flashing)
             if (temp & 1)
-                leds[(temp - 12) / 2] = ON;
-            else
                 leds[(temp - 12) / 2] = FLASH;
+            else
+                leds[(temp - 12) / 2] = ON;
         }
     }
     else
