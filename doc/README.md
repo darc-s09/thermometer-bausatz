@@ -66,6 +66,10 @@ Batteriewechsel erhalten bleiben.
 
 ## Beschreibung der Schaltung
 
+![Schaltplan](Thermometer-Schaltplan.png)
+
+[Schaltplan als PDF](../hardware/thermometer-bausatz-sch.pdf)
+
 ### Übersicht
 
 Zentrales Element der Schaltung ist ein so genannter Mikrocontroller
